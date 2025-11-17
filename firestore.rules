@@ -11,7 +11,7 @@ service cloud.firestore {
         : null;
     }
 
-    function isAdmin() {
+    function isAdminProfile() {
       return signedIn() && currentUserData().tipo == "admin";
     }
 
@@ -20,14 +20,15 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAdmin() || isOwner(userId);
-      allow create, update, delete: if isAdmin();
+      allow read: if isOwner(userId) || (signedIn() && userId != request.auth.uid && isAdminProfile());
+      allow create: if isAdminProfile();
+      allow update, delete: if isOwner(userId) || isAdminProfile();
     }
 
     match /fretes/{freteId} {
-      allow create: if isAdmin() || (signedIn() && request.resource.data.userId == request.auth.uid);
-      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow update, delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid);
+      allow create: if isAdminProfile() || (signedIn() && request.resource.data.userId == request.auth.uid);
+      allow read: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid);
     }
   }
 }
