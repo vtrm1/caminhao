@@ -1186,6 +1186,7 @@
   let unsubscribeFretes = null;
   let unsubscribeMotoristas = null;
   let unsubscribePerfil = null;
+  let criandoPerfil = false;
 
   const tabelaFretesMotoristaBody = document.querySelector("#tabelaFretesMotorista tbody");
   const tabelaFretesChefeBody = document.querySelector("#tabelaFretesChefe tbody");
@@ -1390,6 +1391,46 @@
     }
   }
 
+  async function garantirPerfilUsuario(user) {
+    if (!user) return null;
+
+    const docRef = db.collection(COLECAO_USUARIOS).doc(user.uid);
+    const snapshot = await docRef.get();
+
+    if (snapshot.exists) {
+      return { id: snapshot.id, ...snapshot.data() };
+    }
+
+    if (user.uid === SUPER_ADMIN_UID) {
+      return {
+        id: user.uid,
+        nome: user.displayName || user.email || "Administrador",
+        tipo: "admin",
+      };
+    }
+
+    const perfilPadrao = {
+      nome: user.displayName || user.email || "Motorista",
+      email: user.email || "",
+      tipo: "motorista",
+      salario: 0,
+      caminhao: "",
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    try {
+      criandoPerfil = true;
+      await docRef.set(perfilPadrao, { merge: true });
+      return { id: docRef.id, ...perfilPadrao };
+    } catch (error) {
+      console.error("Erro ao criar perfil padrão", error);
+      mostrarFeedbackLogin("Não foi possível criar seu perfil automático. Confirme o acesso com o administrador.");
+      throw error;
+    } finally {
+      criandoPerfil = false;
+    }
+  }
+
   async function carregarPerfil(uid) {
     const docRef = db.collection(COLECAO_USUARIOS).doc(uid);
     const snap = await docRef.get();
@@ -1410,6 +1451,9 @@
         };
       } else {
         perfilAtual = null;
+        if (!criandoPerfil && usuarioAtual) {
+          garantirPerfilUsuario(usuarioAtual).catch(() => {});
+        }
       }
       atualizarBadgeUsuario();
       if (!perfilAtual) {
@@ -1484,6 +1528,11 @@
     }
 
     mostrarFeedbackLogin("Validando sessão...");
+    try {
+      await garantirPerfilUsuario(user);
+    } catch (error) {
+      console.error("Falha ao preparar perfil", error);
+    }
     iniciarListenerPerfil(user.uid);
     aplicarVisibilidadePorPapel();
   });
