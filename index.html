@@ -4,9 +4,8 @@
   <meta charset="UTF-8" />
   <title>Controle de Fretes - Caminhões</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- Depois você adiciona manifest.json e service worker para virar PWA de verdade -->
-  <!-- <link rel="manifest" href="manifest.json"> -->
+  <meta name="theme-color" content="#111827" />
+  <link rel="manifest" href="manifest.json">
 
   <style>
     /* Estilos básicos só para ficar organizado visualmente */
@@ -827,6 +826,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
   // ===================== FIREBASE + AUTENTICAÇÃO =====================
@@ -842,6 +842,14 @@
 
   const firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
   const auth = firebaseApp.auth();
+  const db = firebase.firestore();
+
+  firebase.firestore().enablePersistence({ synchronizeTabs: true }).catch(error => {
+    console.warn("Persistência offline do Firestore não pôde ser ativada (possivelmente já habilitada ou não suportada).", error);
+  });
+
+  const COLECAO_FRETES = "fretes";
+  const COLECAO_SALARIOS = "salariosMotoristas";
 
   // Informe aqui os usuários autorizados a enxergar a área do chefe.
   const ADMIN_UIDS = ["INGKKP7ibHMZ0NX5YE8VTGgui592"];
@@ -889,6 +897,67 @@
 
   function salvarSalarios(lista) {
     localStorage.setItem(STORAGE_SALARIOS_KEY, JSON.stringify(lista));
+  }
+
+  async function carregarFretesFirestore() {
+    const snapshot = await db.collection(COLECAO_FRETES).orderBy("dataFrete", "asc").get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  }
+
+  async function salvarFreteRemoto(frete) {
+    try {
+      await db.collection(COLECAO_FRETES).doc(frete.id).set(frete);
+    } catch (error) {
+      console.warn("Não foi possível salvar o frete no Firestore (ficará salvo offline até reconectar).", error);
+    }
+  }
+
+  async function excluirFreteRemoto(id) {
+    try {
+      await db.collection(COLECAO_FRETES).doc(id).delete();
+    } catch (error) {
+      console.warn("Não foi possível excluir o frete no Firestore agora. A remoção será tentada novamente quando online.", error);
+    }
+  }
+
+  async function carregarSalariosFirestore() {
+    const snapshot = await db.collection(COLECAO_SALARIOS).orderBy("nome", "asc").get();
+    return snapshot.docs.map(doc => doc.data());
+  }
+
+  async function salvarSalarioRemoto(registro) {
+    try {
+      await db.collection(COLECAO_SALARIOS).doc(registro.slug).set(registro);
+    } catch (error) {
+      console.warn("Não foi possível salvar o salário no Firestore agora. O dado permanece offline até reconectar.", error);
+    }
+  }
+
+  async function sincronizarEstadoComFirestore() {
+    try {
+      const [fretesRemotos, salariosRemotos] = await Promise.all([
+        carregarFretesFirestore(),
+        carregarSalariosFirestore()
+      ]);
+
+      if (Array.isArray(fretesRemotos)) {
+        fretes = fretesRemotos;
+        salvarFretes(fretes);
+      }
+
+      if (Array.isArray(salariosRemotos)) {
+        salariosMotoristas = salariosRemotos;
+        salvarSalarios(salariosMotoristas);
+      }
+
+      atualizarTabelaMotorista();
+      atualizarVisaoChefe();
+      atualizarGraficoDesempenho();
+      atualizarTabelaSalarios();
+      atualizarDatalistMotoristas();
+    } catch (error) {
+      console.warn("Não foi possível sincronizar com o Firestore agora. Operando com dados locais.", error);
+    }
   }
 
   let fretes = carregarFretes();
@@ -1666,7 +1735,7 @@
   atualizarFreteAutomaticamente();
 
   // Botão: salvar frete
-  document.getElementById("btnSalvarFrete").addEventListener("click", () => {
+  document.getElementById("btnSalvarFrete").addEventListener("click", async () => {
     const nomeMotorista = motoristaNomeInput.value.trim();
     const caminhaoId = caminhaoIdInput.value.trim();
     const dataFrete = dataFreteInput.value;
@@ -1713,6 +1782,7 @@
 
     fretes.push(novoFrete);
     salvarFretes(fretes);
+    await salvarFreteRemoto(novoFrete);
     atualizarTabelaMotorista();
     atualizarVisaoChefe();
     atualizarGraficoDesempenho();
@@ -1729,7 +1799,7 @@
     freteTotalInput.value = "";
   });
 
-  btnSalvarSalario?.addEventListener("click", () => {
+  btnSalvarSalario?.addEventListener("click", async () => {
     const nome = salarioMotoristaNomeInput.value.trim();
     const salario = parseFloat(salarioMotoristaValorInput.value.replace(",", "."));
 
@@ -1749,6 +1819,7 @@
     }
 
     salvarSalarios(salariosMotoristas);
+    await salvarSalarioRemoto(registro);
     atualizarTabelaSalarios();
     atualizarVisaoChefe();
     atualizarDatalistMotoristas();
@@ -1789,13 +1860,13 @@
         const tdCte = document.createElement("td");
         tdCte.textContent = f.cte || "-";
 
-      const tdPesoLiquido = document.createElement("td");
-      tdPesoLiquido.className = "text-right";
-      tdPesoLiquido.textContent = f.pesoLiquido != null ? formatarNumero(f.pesoLiquido) : "-";
+        const tdPesoLiquido = document.createElement("td");
+        tdPesoLiquido.className = "text-right";
+        tdPesoLiquido.textContent = f.pesoLiquido != null ? formatarNumero(f.pesoLiquido) : "-";
 
-      const tdValorTon = document.createElement("td");
-      tdValorTon.className = "text-right";
-      tdValorTon.textContent = f.valorTonelada != null ? formatarMoeda(f.valorTonelada) : "-";
+        const tdValorTon = document.createElement("td");
+        tdValorTon.className = "text-right";
+        tdValorTon.textContent = f.valorTonelada != null ? formatarMoeda(f.valorTonelada) : "-";
 
         const tdFrete = document.createElement("td");
         tdFrete.className = "text-right";
@@ -1806,17 +1877,18 @@
         btnExcluir.textContent = "Excluir";
         btnExcluir.className = "btn btn-danger";
         btnExcluir.style.fontSize = "11px";
-        btnExcluir.addEventListener("click", () => {
-              if (confirm("Deseja realmente excluir este frete?")) {
-                fretes = fretes.filter(x => x.id !== f.id);
-                salvarFretes(fretes);
-              atualizarTabelaMotorista();
-              atualizarVisaoChefe();
-              atualizarGraficoDesempenho();
-              atualizarOpcoesFiltrosChefe();
-              atualizarDatalistMotoristas();
-            }
-          });
+        btnExcluir.addEventListener("click", async () => {
+          if (confirm("Deseja realmente excluir este frete?")) {
+            fretes = fretes.filter(x => x.id !== f.id);
+            salvarFretes(fretes);
+            await excluirFreteRemoto(f.id);
+            atualizarTabelaMotorista();
+            atualizarVisaoChefe();
+            atualizarGraficoDesempenho();
+            atualizarOpcoesFiltrosChefe();
+            atualizarDatalistMotoristas();
+          }
+        });
         tdAcoes.appendChild(btnExcluir);
 
         tr.appendChild(tdData);
@@ -2045,21 +2117,22 @@
   atualizarTabelaMotorista();
   // Também já atualiza o painel do administrador com o mês atual
   atualizarOpcoesFiltrosChefe();
-  atualizarVisaoChefe();
-  atualizarGraficoDesempenho();
-  atualizarTabelaSalarios();
-  atualizarDatalistMotoristas();
+    atualizarVisaoChefe();
+    atualizarGraficoDesempenho();
+    atualizarTabelaSalarios();
+    atualizarDatalistMotoristas();
 
-  // ===================== PWA (APENAS COMENTADO POR ENQUANTO) =====================
-  // Depois você pode registrar um service worker para tornar offline:
-  /*
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").then(() => {
-      console.log("Service Worker registrado.");
-    });
-  }
-  */
-</script>
+    sincronizarEstadoComFirestore();
+
+    // ===================== PWA E MODO OFFLINE =====================
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/service-worker.js").then(() => {
+        console.log("Service Worker registrado para funcionamento offline.");
+      }).catch(error => {
+        console.warn("Não foi possível registrar o service worker.", error);
+      });
+    }
+  </script>
 
 </body>
 </html>
