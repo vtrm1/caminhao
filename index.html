@@ -1,0 +1,2065 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Controle de Fretes - Caminhões</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Depois você adiciona manifest.json e service worker para virar PWA de verdade -->
+  <!-- <link rel="manifest" href="manifest.json"> -->
+
+  <style>
+    /* Estilos básicos só para ficar organizado visualmente */
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #F1F5F9;
+      color: #0F172A;
+    }
+
+    header {
+      background: #111827;
+      color: #f9fafb;
+      padding: 16px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    header p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    .app-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .tab-button {
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #e5e7eb;
+      color: #111827;
+      font-size: 14px;
+    }
+
+    .tab-button.active {
+      background: #1E293B;
+      color: #f9fafb;
+    }
+
+    .card {
+      background: #FFFFFF;
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 40px;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .card h2,
+    .card h3 {
+      margin-top: 0;
+      font-size: 1.3rem;
+      color: #1E293B;
+    }
+
+    .auth-card h2 {
+      margin-bottom: 4px;
+    }
+
+    .auth-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .status-pill {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #E2E8F0;
+      color: #475569;
+    }
+
+    .pill-ok {
+      background: rgba(22, 163, 74, 0.15);
+      color: #16A34A;
+    }
+
+    .pill-alert {
+      background: rgba(220, 38, 38, 0.15);
+      color: #DC2626;
+    }
+
+    .auth-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .auth-grid .actions {
+      align-items: flex-end;
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+      align-items: end;
+    }
+
+    .filter-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .card-header-between {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .financial-table td {
+      font-size: 13px;
+    }
+
+    .datalist-hint {
+      font-size: 12px;
+      color: #475569;
+      margin-top: 4px;
+    }
+
+    .auth-error {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #DC2626;
+    }
+
+    .auth-error.success {
+      color: #16A34A;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .chart-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .chart-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #4b5563;
+    }
+
+    .chart-wrapper {
+      margin-top: 16px;
+    }
+
+    .summary-large .summary-box {
+      padding: 18px;
+    }
+
+    .summary-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: #0F172A;
+      margin: 6px 0;
+    }
+
+    .summary-subtext {
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .driver-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 16px;
+    }
+
+    .driver-card {
+      border: 1px solid #E2E8F0;
+      border-radius: 16px;
+      padding: 20px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
+    }
+
+    .driver-card h4 {
+      margin: 0;
+      font-size: 17px;
+      color: #111827;
+    }
+
+    .driver-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .driver-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .driver-metrics span {
+      display: block;
+      font-size: 15px;
+      font-weight: 600;
+      color: #0F172A;
+    }
+
+    .link-button {
+      border: none;
+      background: none;
+      color: #2563EB;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 0;
+    }
+
+    .weeks-wrapper {
+      border-top: 1px dashed #E2E8F0;
+      padding-top: 12px;
+      margin-top: 8px;
+    }
+
+    .weeks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .week-card {
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+      padding: 12px;
+      background: #F8FAFC;
+      font-size: 13px;
+    }
+
+    .week-card.week-highlight {
+      border-color: rgba(22, 163, 74, 0.6);
+      box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.2);
+    }
+
+    .week-card strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #0F172A;
+    }
+
+    .indicators-grid .summary-box {
+      padding: 14px;
+    }
+
+    .indicator-label {
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .ranking-list {
+      margin-top: 16px;
+    }
+
+    .ranking-list ol {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .ranking-list li {
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: #0F172A;
+    }
+
+    .admin-lock-hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid #E2E8F0;
+      margin: 32px 0;
+    }
+
+    .section-title {
+      font-size: 1.3rem;
+      color: #1E293B;
+      margin: 0 0 8px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: #475569;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #E2E8F0;
+      font-size: 14px;
+      background: #ffffff;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #1E293B;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn-primary {
+      background: #1E293B;
+      color: #f9fafb;
+    }
+
+    .btn-secondary {
+      background: #E2E8F0;
+      color: #1E293B;
+    }
+
+    .btn-danger {
+      background: rgba(220, 38, 38, 0.15);
+      color: #DC2626;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #ffffff;
+      border: 1px solid #E2E8F0;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #E2E8F0;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #E2E8F0;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: #475569;
+    }
+
+    .table-wrapper {
+      max-height: 360px;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid #E2E8F0;
+      margin-top: 12px;
+      background: #fff;
+    }
+
+    .info-text {
+      font-size: 13px;
+      color: #475569;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .summary-box {
+      background: #ffffff;
+      padding: 18px;
+      border-radius: 14px;
+      border: 1px solid #E2E8F0;
+      font-size: 13px;
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(56, 189, 248, 0.2);
+      color: #1E3A8A;
+    }
+
+    .badge-week {
+      background: rgba(56, 189, 248, 0.2);
+      color: #1E3A8A;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .text-muted {
+      color: #9ca3af;
+      font-size: 12px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .admin-locked {
+      display: none !important;
+    }
+
+    @media (max-width: 600px) {
+      header h1 {
+        font-size: 18px;
+      }
+      header p {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Controle de Fretes</h1>
+  <p>Registro de fretes por motorista e caminhão, com visão semanal e mensal.</p>
+</header>
+
+<div class="app-container">
+
+  <!-- Abas principais: Motorista x Chefe -->
+  <div class="card auth-card hidden" id="adminAccessCard">
+    <div class="auth-header">
+      <div>
+        <h2>Acesso do administrador</h2>
+        <p class="info-text">
+          Somente o dono dos caminhões consegue abrir a visão estratégica.
+        </p>
+      </div>
+      <span class="status-pill pill-alert" id="adminStatusPill">Desconectado</span>
+    </div>
+
+    <div id="adminLoggedOutView" class="auth-grid">
+      <div>
+        <label for="adminEmail">E-mail corporativo</label>
+        <input type="email" id="adminEmail" placeholder="voce@nowtransportes.com" autocomplete="username" />
+      </div>
+      <div>
+        <label for="adminPassword">Senha</label>
+        <input type="password" id="adminPassword" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="btnEntrarAdmin">Entrar</button>
+      </div>
+    </div>
+
+    <div id="adminLoggedInView" class="hidden">
+      <p>
+        Logado como <strong id="adminDisplayName">-</strong>
+      </p>
+      <p class="info-text" id="adminAccessInfo">
+        Validando permissões do administrador...
+      </p>
+      <div class="actions">
+        <button class="btn btn-secondary" id="btnSairAdmin">Sair</button>
+      </div>
+    </div>
+
+    <p class="auth-error hidden" id="adminAuthFeedback"></p>
+    <p class="admin-lock-hint">
+      Configure a conta administrativa no Firebase Authentication; apenas o UID liberado no código terá acesso ao painel.
+    </p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-button active" data-tab="motorista-tab">Área do Motorista</button>
+    <button class="tab-button hidden" data-tab="chefe-tab" id="chefeTabButton">Painel do Admin</button>
+  </div>
+
+  <!-- ========== ÁREA DO MOTORISTA ========== -->
+  <section id="motorista-tab" class="tab-content">
+    <div class="card">
+      <h2>Lançar novo frete</h2>
+      <p class="info-text">
+        Preencha os dados do frete. Se você não informar o valor do frete,
+        o sistema calcula automaticamente: <strong>frete = peso líquido × valor por tonelada</strong>.
+      </p>
+
+      <div class="form-grid">
+        <div>
+          <label for="motoristaNome">Nome do motorista</label>
+          <input type="text" id="motoristaNome" placeholder="Ex: João da Silva" />
+        </div>
+        <div>
+          <label for="caminhaoId">Caminhão (identificação)</label>
+          <input type="text" id="caminhaoId" placeholder="Ex: Truck 01 / Placa ABC-1234" />
+        </div>
+        <div>
+          <label for="dataFrete">Data</label>
+          <input type="date" id="dataFrete" />
+        </div>
+        <div>
+          <label for="notaFrete">Nota</label>
+          <input type="text" id="notaFrete" placeholder="Número da nota" />
+        </div>
+        <div>
+          <label for="cteFrete">CTE</label>
+          <input type="text" id="cteFrete" placeholder="Número do CTE" />
+        </div>
+        <div>
+          <label for="pesoBruto">Peso bruto (kg)</label>
+          <input type="number" id="pesoBruto" step="0.01" placeholder="Ex: 28000" />
+        </div>
+        <div>
+          <label for="pesoLiquido">Peso líquido (kg)</label>
+          <input type="number" id="pesoLiquido" step="0.01" placeholder="Ex: 27000" />
+        </div>
+        <div>
+          <label for="valorTonelada">Valor por tonelada (R$)</label>
+          <input type="number" id="valorTonelada" step="0.01" placeholder="Ex: 85,50" />
+        </div>
+        <div>
+          <label for="freteTotal">
+            Frete total (R$)
+            <span class="text-muted">(preenchido automaticamente)</span>
+          </label>
+          <input type="number" id="freteTotal" step="0.01" placeholder="Ex: 2300,00" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="btnSalvarFrete">Salvar frete</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Fretes lançados (todos os registros armazenados neste dispositivo)</h3>
+      <p class="info-text">
+        Esta lista está apenas no <strong>navegador</strong>, usando <code>localStorage</code> para simular.
+        Depois você troca isso por Firestore.
+      </p>
+
+      <div class="table-wrapper">
+        <table id="tabelaFretesMotorista">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Semana</th>
+              <th>Motorista</th>
+              <th>Caminhão</th>
+              <th>Nota</th>
+              <th>CTE</th>
+              <th class="text-right">Peso líq. (kg)</th>
+              <th class="text-right">R$/ton</th>
+              <th class="text-right">Frete (R$)</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Linhas geradas via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-box">
+          <strong>Total de fretes (R$):</strong>
+          <div id="totalFretesMotorista">0,00</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== ÁREA DO ADMIN ========== -->
+  <section id="chefe-tab" class="tab-content hidden admin-only">
+    <div class="card" id="adminFiltersCard">
+      <div class="card-header-between">
+        <div>
+          <h2 class="section-title">Painel do administrador</h2>
+          <p class="info-text">
+            Filtre o período e visualize rapidamente os totais, motoristas e indicadores.
+          </p>
+        </div>
+      </div>
+      <div class="filters-grid">
+        <div>
+          <label for="filtroMesChefe">Mês de referência</label>
+          <input type="month" id="filtroMesChefe" />
+        </div>
+        <div>
+          <label for="filtroMotoristaChefe">Motorista</label>
+          <select id="filtroMotoristaChefe">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div>
+          <label for="filtroCaminhaoChefe">Caminhão</label>
+          <select id="filtroCaminhaoChefe">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div>
+          <label for="percentualComissaoChefe">Percentual de comissão (%)</label>
+          <input type="number" id="percentualComissaoChefe" step="0.1" min="0" max="100" value="10" />
+        </div>
+        <div class="filter-actions">
+          <button class="btn btn-primary" id="btnAplicarFiltroChefe">Aplicar filtro</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-grid summary-large" id="cardsResumoMes">
+      <div class="summary-box">
+        <span class="summary-subtext">Total de frete no mês</span>
+        <div class="summary-value" id="resumoTotalFrete">R$ 0,00</div>
+        <p class="summary-subtext">Período de acordo com os filtros</p>
+      </div>
+      <div class="summary-box">
+        <span class="summary-subtext">Peso total transportado</span>
+        <div class="summary-value" id="resumoPesoTransportado">0,00 t</div>
+        <p class="summary-subtext">Soma do peso líquido</p>
+      </div>
+      <div class="summary-box">
+        <span class="summary-subtext">Comissão total</span>
+        <div class="summary-value" id="resumoComissaoTotal">R$ 0,00</div>
+        <p class="summary-subtext">Aplicando o percentual escolhido</p>
+      </div>
+      <div class="summary-box">
+        <span class="summary-subtext">Total da folha</span>
+        <div class="summary-value" id="resumoFolhaTotal">R$ 0,00</div>
+        <p class="summary-subtext">Salários + comissões</p>
+      </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <div class="card">
+      <div class="card-header-between">
+        <h3 class="section-title">Motoristas no período</h3>
+        <p class="info-text">Frete bruto, comissões, salários e viagens.</p>
+      </div>
+      <div id="cardsMotoristasResumo" class="driver-grid">
+        <div class="info-text">Nenhum frete encontrado para o filtro atual.</div>
+      </div>
+    </div>
+
+    <hr class="section-divider">
+    <div class="card">
+      <div class="card-header-between">
+        <h3 class="section-title">Resumo por semana</h3>
+        <p class="info-text">Totais gerais por semana dentro do mês filtrado.</p>
+      </div>
+      <div id="resumoSemanasGeral" class="weeks-grid"></div>
+    </div>
+
+    <hr class="section-divider">
+    <div class="card">
+      <h3 class="section-title">Fretes detalhados</h3>
+      <p class="info-text">Lista completa de viagens com os filtros aplicados.</p>
+      <div class="table-wrapper">
+        <table id="tabelaFretesChefe">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Semana</th>
+              <th>Motorista</th>
+              <th>Caminhão</th>
+              <th>Nota</th>
+              <th>CTE</th>
+              <th class="text-right">Peso líq. (kg)</th>
+              <th class="text-right">R$/ton</th>
+              <th class="text-right">Frete (R$)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Linhas geradas via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <hr class="section-divider">
+    <div class="card" id="cardIndicadores">
+      <h3 class="section-title">Indicadores consolidados</h3>
+      <p class="info-text">Médias gerais e ranking dos motoristas no mês.</p>
+      <div class="summary-grid indicators-grid">
+        <div class="summary-box">
+          <span class="indicator-label">Frete médio por viagem</span>
+          <div class="summary-value" id="indicadorFreteMedio">R$ 0,00</div>
+        </div>
+        <div class="summary-box">
+          <span class="indicator-label">Peso médio por viagem</span>
+          <div class="summary-value" id="indicadorPesoMedio">0,00 t</div>
+        </div>
+        <div class="summary-box">
+          <span class="indicator-label">Semana com maior frete</span>
+          <div class="summary-value" id="indicadorSemanaAlta">-</div>
+        </div>
+        <div class="summary-box">
+          <span class="indicator-label">Semana com menor frete</span>
+          <div class="summary-value" id="indicadorSemanaBaixa">-</div>
+        </div>
+      </div>
+      <div class="ranking-list">
+        <h4>Ranking de motoristas</h4>
+        <ol id="listaRankingMotoristas"></ol>
+      </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <div class="card admin-only" id="cardSalariosMotoristas">
+      <h3 class="section-title">Salários dos motoristas</h3>
+      <p class="info-text">
+        Defina o salário fixo de cada motorista. O sistema soma esse valor com a comissão configurada no filtro acima para chegar ao pagamento.
+      </p>
+
+      <div class="form-grid">
+        <div>
+          <label for="salarioMotoristaNome">Motorista</label>
+          <input type="text" id="salarioMotoristaNome" list="motoristasDatalist" placeholder="Ex: João da Silva" />
+          <datalist id="motoristasDatalist"></datalist>
+          <p class="datalist-hint">Sugestões preenchidas automaticamente com os fretes lançados.</p>
+        </div>
+        <div>
+          <label for="salarioMotoristaValor">Salário fixo (R$)</label>
+          <input type="number" id="salarioMotoristaValor" step="0.01" min="0" placeholder="Ex: 3500,00" />
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btnSalvarSalario">Salvar salário</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="tabelaSalariosMotoristas">
+          <thead>
+            <tr>
+              <th>Motorista</th>
+              <th class="text-right">Salário (R$)</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- preenchido via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  // ===================== FIREBASE + AUTENTICAÇÃO =====================
+  const firebaseConfig = {
+    apiKey: "AIzaSyBoMun-Hn757Oq08yN9dQ-k9Z5ANkuEIfk",
+    authDomain: "now-transportes.firebaseapp.com",
+    projectId: "now-transportes",
+    storageBucket: "now-transportes.firebasestorage.app",
+    messagingSenderId: "304411297708",
+    appId: "1:304411297708:web:8d119de19239db258a9c09",
+    measurementId: "G-DCJQG1Y40S"
+  };
+
+  const firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+  const auth = firebaseApp.auth();
+
+  // Informe aqui os usuários autorizados a enxergar a área do chefe.
+  const ADMIN_UIDS = ["INGKKP7ibHMZ0NX5YE8VTGgui592"];
+  const ADMIN_EMAILS = []; // opcional: mantenha vazio para ignorar e-mails
+  const NORMALIZED_ADMIN_EMAILS = ADMIN_EMAILS.filter(Boolean).map(email => email.toLowerCase());
+
+  let usuarioAutenticado = null;
+  let adminLiberado = false;
+
+  // ===================== DADOS BÁSICOS EM localStorage (simulação) =====================
+
+  const STORAGE_KEY = "fretesCaminhoes_v1";
+  const STORAGE_SALARIOS_KEY = "salariosMotoristas_v1";
+  const STORAGE_COMISSAO_KEY = "percentualComissaoAdmin_v1";
+  const COMISSAO_PADRAO = 10; // 10% sobre o frete bruto
+
+  function carregarFretes() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch (e) {
+      console.error("Erro ao carregar fretes do localStorage", e);
+      return [];
+    }
+  }
+
+  function salvarFretes(fretes) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(fretes));
+  }
+
+  function carregarSalarios() {
+    try {
+      const raw = localStorage.getItem(STORAGE_SALARIOS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error("Erro ao carregar salários", e);
+      return [];
+    }
+  }
+
+  function salvarSalarios(lista) {
+    localStorage.setItem(STORAGE_SALARIOS_KEY, JSON.stringify(lista));
+  }
+
+  let fretes = carregarFretes();
+  let salariosMotoristas = carregarSalarios();
+
+  // ===================== ELEMENTOS DE DOM (USO GERAL) =====================
+
+  const motoristaNomeInput = document.getElementById("motoristaNome");
+  const caminhaoIdInput = document.getElementById("caminhaoId");
+  const dataFreteInput = document.getElementById("dataFrete");
+  const notaFreteInput = document.getElementById("notaFrete");
+  const cteFreteInput = document.getElementById("cteFrete");
+  const pesoBrutoInput = document.getElementById("pesoBruto");
+  const pesoLiquidoInput = document.getElementById("pesoLiquido");
+  const valorToneladaInput = document.getElementById("valorTonelada");
+  const freteTotalInput = document.getElementById("freteTotal");
+  const tabelaFretesMotoristaBody = document.querySelector("#tabelaFretesMotorista tbody");
+  const totalFretesMotoristaSpan = document.getElementById("totalFretesMotorista");
+
+  const filtroMesChefeInput = document.getElementById("filtroMesChefe");
+  const filtroMotoristaChefeSelect = document.getElementById("filtroMotoristaChefe");
+  const filtroCaminhaoChefeSelect = document.getElementById("filtroCaminhaoChefe");
+  const tabelaFretesChefeBody = document.querySelector("#tabelaFretesChefe tbody");
+  const resumoTotalFreteSpan = document.getElementById("resumoTotalFrete");
+  const resumoPesoTransportadoSpan = document.getElementById("resumoPesoTransportado");
+  const resumoComissaoTotalSpan = document.getElementById("resumoComissaoTotal");
+  const resumoFolhaTotalSpan = document.getElementById("resumoFolhaTotal");
+  const cardsMotoristasResumoDiv = document.getElementById("cardsMotoristasResumo");
+  const resumoSemanasGeralDiv = document.getElementById("resumoSemanasGeral");
+  const indicadorFreteMedioSpan = document.getElementById("indicadorFreteMedio");
+  const indicadorPesoMedioSpan = document.getElementById("indicadorPesoMedio");
+  const indicadorSemanaAltaSpan = document.getElementById("indicadorSemanaAlta");
+  const indicadorSemanaBaixaSpan = document.getElementById("indicadorSemanaBaixa");
+  const rankingMotoristasLista = document.getElementById("listaRankingMotoristas");
+  const percentualComissaoChefeInput = document.getElementById("percentualComissaoChefe");
+  const salarioMotoristaNomeInput = document.getElementById("salarioMotoristaNome");
+  const salarioMotoristaValorInput = document.getElementById("salarioMotoristaValor");
+  const btnSalvarSalario = document.getElementById("btnSalvarSalario");
+  const tabelaSalariosBody = document.querySelector("#tabelaSalariosMotoristas tbody");
+  const motoristasDatalist = document.getElementById("motoristasDatalist");
+
+  // ===================== UTILS =====================
+
+  // Formata número em R$ com duas casas
+  function formatarMoeda(valor) {
+    const numero = Number(valor);
+    if (isNaN(numero) || valor === null) return "R$ 0,00";
+    return `R$ ${numero.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
+  }
+
+  // Formata número simples com duas casas (ex: peso)
+  function formatarNumero(valor) {
+    if (isNaN(valor) || valor === null) return "0,00";
+    return valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // Calcula o número da semana no mês (1 a 5) com base no dia
+  // Regra simples: dia 1-7 = semana 1, 8-14 = 2, 15-21 = 3, 22-28 = 4, 29-31 = 5
+  function calcularSemanaDoMes(dataISO) {
+    if (!dataISO) return null;
+    const d = new Date(dataISO + "T00:00:00");
+    const dia = d.getDate();
+    return Math.ceil(dia / 7);
+  }
+
+  function normalizarNomeMotorista(nome) {
+    return (nome || "").trim().toLowerCase();
+  }
+  function obterPercentualComissao() {
+    if (!percentualComissaoChefeInput) return COMISSAO_PADRAO;
+    const valor = parseFloat(percentualComissaoChefeInput.value.replace(",", "."));
+    if (isNaN(valor) || valor < 0) {
+      return COMISSAO_PADRAO;
+    }
+    return valor;
+  }
+
+  function definirPercentualComissaoInicial() {
+    if (!percentualComissaoChefeInput) return;
+    const salvo = parseFloat(localStorage.getItem(STORAGE_COMISSAO_KEY));
+    if (!isNaN(salvo)) {
+      percentualComissaoChefeInput.value = salvo;
+    } else {
+      percentualComissaoChefeInput.value = COMISSAO_PADRAO;
+    }
+  }
+
+  function persistirPercentualComissao() {
+    if (!percentualComissaoChefeInput) return;
+    const valor = obterPercentualComissao();
+    localStorage.setItem(STORAGE_COMISSAO_KEY, valor);
+  }
+
+  function obterSalarioMotorista(nome) {
+    const slug = normalizarNomeMotorista(nome);
+    if (!slug) return 0;
+    const registro = salariosMotoristas.find(item => item.slug === slug);
+    return registro ? Number(registro.salario) || 0 : 0;
+  }
+
+  function atualizarTabelaSalarios() {
+    if (!tabelaSalariosBody) return;
+    tabelaSalariosBody.innerHTML = "";
+
+    const ordenados = [...salariosMotoristas].sort((a, b) => a.nome.localeCompare(b.nome));
+    ordenados.forEach(item => {
+      const tr = document.createElement("tr");
+
+      const tdNome = document.createElement("td");
+      tdNome.textContent = item.nome;
+
+      const tdSalario = document.createElement("td");
+      tdSalario.className = "text-right";
+      tdSalario.textContent = formatarMoeda(item.salario);
+
+      const tdAcoes = document.createElement("td");
+      const btnEditar = document.createElement("button");
+      btnEditar.className = "btn btn-secondary";
+      btnEditar.style.fontSize = "11px";
+      btnEditar.textContent = "Editar";
+      btnEditar.addEventListener("click", () => {
+        salarioMotoristaNomeInput.value = item.nome;
+        salarioMotoristaValorInput.value = item.salario;
+      });
+
+      const btnRemover = document.createElement("button");
+      btnRemover.className = "btn btn-danger";
+      btnRemover.style.fontSize = "11px";
+      btnRemover.textContent = "Remover";
+      btnRemover.addEventListener("click", () => {
+        if (confirm(`Remover salário de ${item.nome}?`)) {
+          salariosMotoristas = salariosMotoristas.filter(s => s.slug !== item.slug);
+          salvarSalarios(salariosMotoristas);
+          atualizarTabelaSalarios();
+          atualizarVisaoChefe();
+          atualizarDatalistMotoristas();
+        }
+      });
+
+      tdAcoes.appendChild(btnEditar);
+      tdAcoes.appendChild(btnRemover);
+
+      tr.appendChild(tdNome);
+      tr.appendChild(tdSalario);
+      tr.appendChild(tdAcoes);
+
+      tabelaSalariosBody.appendChild(tr);
+    });
+  }
+
+  function atualizarDatalistMotoristas() {
+    if (!motoristasDatalist) return;
+    const nomes = new Set();
+    fretes.forEach(f => {
+      if (f.nomeMotorista) nomes.add(f.nomeMotorista.trim());
+    });
+    salariosMotoristas.forEach(item => {
+      if (item.nome) nomes.add(item.nome);
+    });
+    motoristasDatalist.innerHTML = "";
+    Array.from(nomes)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b))
+      .forEach(nome => {
+        const option = document.createElement("option");
+        option.value = nome;
+        motoristasDatalist.appendChild(option);
+      });
+    atualizarOpcoesFiltrosChefe();
+  }
+
+  function atualizarOpcoesFiltrosChefe() {
+    if (!filtroMotoristaChefeSelect || !filtroCaminhaoChefeSelect) return;
+    const motoristas = new Set();
+    const caminhoes = new Set();
+    fretes.forEach(f => {
+      if (f.nomeMotorista) motoristas.add(f.nomeMotorista.trim());
+      if (f.caminhaoId) caminhoes.add(f.caminhaoId.trim());
+    });
+    preencherSelectComValores(filtroMotoristaChefeSelect, motoristas);
+    preencherSelectComValores(filtroCaminhaoChefeSelect, caminhoes);
+  }
+
+  function preencherSelectComValores(selectEl, valoresSet) {
+    if (!selectEl) return;
+    const atual = selectEl.value;
+    const valores = Array.from(valoresSet)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    selectEl.innerHTML =
+      '<option value="">Todos</option>' +
+      valores.map(valor => `<option value="${valor}">${valor}</option>`).join("");
+    if (atual && valores.includes(atual)) {
+      selectEl.value = atual;
+    }
+  }
+
+  function obterFretesFiltrados() {
+    const mesISO = obterMesReferenciaChefe();
+    const motoristaFiltro = filtroMotoristaChefeSelect?.value || "";
+    const caminhaoFiltro = filtroCaminhaoChefeSelect?.value || "";
+    return fretes.filter(f => {
+      const data = f.dataFrete || "";
+      if (!data.startsWith(mesISO)) return false;
+      if (motoristaFiltro && f.nomeMotorista !== motoristaFiltro) return false;
+      if (caminhaoFiltro && f.caminhaoId !== caminhaoFiltro) return false;
+      return true;
+    });
+  }
+
+  function renderizarResumoMes(fretesMes, comissaoPercent, totalFolha) {
+    if (!resumoTotalFreteSpan) return;
+    const totalFrete = fretesMes.reduce((acc, f) => acc + (Number(f.freteTotal) || 0), 0);
+    const totalPesoKg = fretesMes.reduce((acc, f) => acc + (Number(f.pesoLiquido) || 0), 0);
+    const comissaoTotal = totalFrete * (comissaoPercent / 100);
+    resumoTotalFreteSpan.textContent = formatarMoeda(totalFrete);
+    resumoPesoTransportadoSpan.textContent = `${formatarNumero(totalPesoKg / 1000)} t`;
+    resumoComissaoTotalSpan.textContent = formatarMoeda(comissaoTotal);
+    resumoFolhaTotalSpan.textContent = formatarMoeda(totalFolha);
+  }
+
+  function agruparFretesPorMotorista(lista) {
+    const mapa = {};
+    lista.forEach(f => {
+      const nome = (f.nomeMotorista || "Sem motorista").trim();
+      if (!mapa[nome]) {
+        mapa[nome] = {
+          nome,
+          freteTotal: 0,
+          pesoTotal: 0,
+          viagens: 0,
+          semanas: {}
+        };
+      }
+      const registro = mapa[nome];
+      const frete = Number(f.freteTotal) || 0;
+      const peso = Number(f.pesoLiquido) || 0;
+      registro.freteTotal += frete;
+      registro.pesoTotal += peso;
+      registro.viagens += 1;
+      const semana = f.semana || calcularSemanaDoMes(f.dataFrete);
+      if (semana) {
+        if (!registro.semanas[semana]) {
+          registro.semanas[semana] = { frete: 0, peso: 0, viagens: 0 };
+        }
+        registro.semanas[semana].frete += frete;
+        registro.semanas[semana].peso += peso;
+        registro.semanas[semana].viagens += 1;
+      }
+    });
+    return mapa;
+  }
+
+  function criarCardMotorista(info) {
+    const card = document.createElement("div");
+    card.className = "driver-card";
+    card.innerHTML = `
+      <div class="driver-meta">
+        <h4>${info.nome}</h4>
+        <span>${info.viagens} viagens</span>
+      </div>
+      <div class="driver-metrics">
+        <div>
+          <span>${formatarMoeda(info.freteTotal)}</span>
+          Frete bruto
+        </div>
+        <div>
+          <span>${formatarMoeda(info.comissao)}</span>
+          Comissão
+        </div>
+        <div>
+          <span>${formatarMoeda(info.salario)}</span>
+          Salário
+        </div>
+        <div>
+          <span>${formatarMoeda(info.totalPagar)}</span>
+          Total a pagar
+        </div>
+      </div>
+      <p class="summary-subtext">Peso total no mês: ${formatarNumero((info.pesoTotal || 0) / 1000)} t</p>
+      <button class="link-button" type="button">Ver semanas</button>
+      <div class="weeks-wrapper hidden">
+        <div class="weeks-grid"></div>
+      </div>
+    `;
+
+    const weeksGrid = card.querySelector(".weeks-grid");
+    const semanas = Object.keys(info.semanas || {}).sort((a, b) => Number(a) - Number(b));
+    if (!semanas.length) {
+      weeksGrid.innerHTML = '<p class="summary-subtext">Sem viagens registradas por semana.</p>';
+    } else {
+      semanas.forEach(sem => {
+        const dados = info.semanas[sem];
+        const bloco = document.createElement("div");
+        bloco.className = "week-card";
+        bloco.innerHTML = `
+          <strong>Semana ${sem}</strong>
+          Frete: ${formatarMoeda(dados.frete)}<br>
+          Peso: ${formatarNumero(dados.peso / 1000)} t<br>
+          Viagens: ${dados.viagens}
+        `;
+        weeksGrid.appendChild(bloco);
+      });
+    }
+
+    const btnToggle = card.querySelector(".link-button");
+    const wrapper = card.querySelector(".weeks-wrapper");
+    btnToggle.addEventListener("click", () => {
+      wrapper.classList.toggle("hidden");
+      btnToggle.textContent = wrapper.classList.contains("hidden") ? "Ver semanas" : "Ocultar semanas";
+    });
+
+    return card;
+  }
+
+
+  function renderizarCardsMotoristas(fretesLista, comissaoPercent) {
+    if (!cardsMotoristasResumoDiv) return { totalFolha: 0, ranking: [] };
+    cardsMotoristasResumoDiv.innerHTML = "";
+    const agrupado = agruparFretesPorMotorista(fretesLista);
+    const nomes = Object.keys(agrupado).sort(
+      (a, b) => agrupado[b].freteTotal - agrupado[a].freteTotal
+    );
+
+    if (!nomes.length) {
+      cardsMotoristasResumoDiv.innerHTML = '<div class="info-text">Nenhum frete encontrado para o filtro atual.</div>';
+      return { totalFolha: 0, ranking: [] };
+    }
+
+    let totalFolha = 0;
+    const ranking = [];
+
+    nomes.forEach(nome => {
+      const dados = agrupado[nome];
+      const salario = obterSalarioMotorista(nome);
+      const comissao = dados.freteTotal * (comissaoPercent / 100);
+      const totalPagar = salario + comissao;
+      totalFolha += totalPagar;
+      ranking.push({ nome, frete: dados.freteTotal });
+      const card = criarCardMotorista({
+        nome,
+        freteTotal: dados.freteTotal,
+        salario,
+        comissao,
+        totalPagar,
+        viagens: dados.viagens,
+        semanas: dados.semanas,
+        pesoTotal: dados.pesoTotal
+      });
+      cardsMotoristasResumoDiv.appendChild(card);
+    });
+
+    return { totalFolha, ranking };
+  }
+
+  function renderizarResumoSemanalGeral(fretesLista, comissaoPercent) {
+    if (!resumoSemanasGeralDiv) return {};
+    resumoSemanasGeralDiv.innerHTML = "";
+    if (!fretesLista.length) {
+      resumoSemanasGeralDiv.innerHTML = '<div class="info-text">Nenhum dado disponível para este período.</div>';
+      return {};
+    }
+
+    const mapa = {};
+    fretesLista.forEach(f => {
+      const semana = f.semana || calcularSemanaDoMes(f.dataFrete);
+      if (!semana) return;
+      if (!mapa[semana]) {
+        mapa[semana] = { frete: 0, peso: 0, viagens: 0 };
+      }
+      mapa[semana].frete += Number(f.freteTotal) || 0;
+      mapa[semana].peso += Number(f.pesoLiquido) || 0;
+      mapa[semana].viagens += 1;
+    });
+
+    const semanas = Object.keys(mapa).sort((a, b) => Number(a) - Number(b));
+    const semanaDestaque = semanas.reduce((best, sem) => {
+      if (best == null) return sem;
+      return mapa[sem].frete > mapa[best].frete ? sem : best;
+    }, null);
+
+    semanas.forEach(sem => {
+      const dados = mapa[sem];
+      const card = document.createElement("div");
+      card.className = "week-card";
+      if (semanaDestaque && sem === semanaDestaque) {
+        card.classList.add("week-highlight");
+      }
+      card.innerHTML = `
+        <strong>Semana ${sem}</strong>
+        Frete: ${formatarMoeda(dados.frete)}<br>
+        Peso: ${formatarNumero(dados.peso / 1000)} t<br>
+        Viagens: ${dados.viagens}<br>
+        Comissão: ${formatarMoeda(dados.frete * (comissaoPercent / 100))}
+      `;
+      resumoSemanasGeralDiv.appendChild(card);
+    });
+
+    return mapa;
+  }
+
+  function atualizarIndicadores(fretesLista, rankingData, resumoSemanas) {
+    if (!indicadorFreteMedioSpan) return;
+    const totalViagens = fretesLista.length;
+    const totalFrete = fretesLista.reduce((acc, f) => acc + (Number(f.freteTotal) || 0), 0);
+    const totalPeso = fretesLista.reduce((acc, f) => acc + (Number(f.pesoLiquido) || 0), 0);
+    indicadorFreteMedioSpan.textContent = totalViagens ? formatarMoeda(totalFrete / totalViagens) : "R$ 0,00";
+    indicadorPesoMedioSpan.textContent = totalViagens
+      ? `${formatarNumero(totalPeso / 1000 / totalViagens)} t`
+      : "0,00 t";
+
+    const semanas = Object.keys(resumoSemanas || {});
+    if (semanas.length) {
+      const ordenado = semanas.sort((a, b) => resumoSemanas[b].frete - resumoSemanas[a].frete);
+      const maior = ordenado[0];
+      const menor = ordenado[ordenado.length - 1];
+      indicadorSemanaAltaSpan.textContent = `Semana ${maior} - ${formatarMoeda(resumoSemanas[maior].frete)}`;
+      indicadorSemanaBaixaSpan.textContent = `Semana ${menor} - ${formatarMoeda(resumoSemanas[menor].frete)}`;
+    } else {
+      indicadorSemanaAltaSpan.textContent = "-";
+      indicadorSemanaBaixaSpan.textContent = "-";
+    }
+
+    if (rankingMotoristasLista) {
+      rankingMotoristasLista.innerHTML = "";
+      if (!rankingData.length) {
+        const vazio = document.createElement("li");
+        vazio.textContent = "Sem registros";
+        vazio.className = "summary-subtext";
+        rankingMotoristasLista.appendChild(vazio);
+      } else {
+        rankingData.slice(0, 5).forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = `${item.nome} — ${formatarMoeda(item.frete)}`;
+          rankingMotoristasLista.appendChild(li);
+        });
+      }
+    }
+  }
+
+  function preencherTabelaFretesChefe(fretesLista) {
+    if (!tabelaFretesChefeBody) return;
+    tabelaFretesChefeBody.innerHTML = "";
+
+    fretesLista
+      .sort((a, b) => (a.dataFrete || "").localeCompare(b.dataFrete || ""))
+      .forEach(f => {
+        const tr = document.createElement("tr");
+        const tdData = document.createElement("td");
+        tdData.textContent = f.dataFrete || "-";
+
+        const tdSemana = document.createElement("td");
+        const semana = f.semana || calcularSemanaDoMes(f.dataFrete);
+        if (semana) {
+          tdSemana.innerHTML = `<span class=\"badge badge-week\">Sem ${semana}</span>`;
+        } else {
+          tdSemana.textContent = "-";
+        }
+
+        const tdMotorista = document.createElement("td");
+        tdMotorista.textContent = f.nomeMotorista || "-";
+
+        const tdCaminhao = document.createElement("td");
+        tdCaminhao.textContent = f.caminhaoId || "-";
+
+        const tdNota = document.createElement("td");
+        tdNota.textContent = f.nota || "-";
+
+        const tdCte = document.createElement("td");
+        tdCte.textContent = f.cte || "-";
+
+        const tdPeso = document.createElement("td");
+        tdPeso.className = "text-right";
+        tdPeso.textContent = f.pesoLiquido != null ? formatarNumero(f.pesoLiquido) : "-";
+
+        const tdValorTon = document.createElement("td");
+        tdValorTon.className = "text-right";
+        tdValorTon.textContent = f.valorTonelada != null ? formatarMoeda(f.valorTonelada) : "-";
+
+        const tdFrete = document.createElement("td");
+        tdFrete.className = "text-right";
+        tdFrete.textContent = f.freteTotal != null ? formatarMoeda(f.freteTotal) : "-";
+
+        tr.appendChild(tdData);
+        tr.appendChild(tdSemana);
+        tr.appendChild(tdMotorista);
+        tr.appendChild(tdCaminhao);
+        tr.appendChild(tdNota);
+        tr.appendChild(tdCte);
+        tr.appendChild(tdPeso);
+        tr.appendChild(tdValorTon);
+        tr.appendChild(tdFrete);
+
+        tabelaFretesChefeBody.appendChild(tr);
+      });
+  }
+
+  // ===================== UI: TROCA DE ABAS =====================
+
+  const tabButtons = document.querySelectorAll(".tab-button");
+  const tabContents = document.querySelectorAll(".tab-content");
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tabId = btn.dataset.tab;
+
+      tabButtons.forEach(b => b.classList.remove("active"));
+      tabContents.forEach(c => c.classList.add("hidden"));
+
+      btn.classList.add("active");
+      document.getElementById(tabId).classList.remove("hidden");
+    });
+  });
+
+  const adminTabButton = document.getElementById("chefeTabButton");
+  const adminAccessCard = document.getElementById("adminAccessCard");
+  const adminOnlyElements = document.querySelectorAll(".admin-only");
+  const adminLoggedOutView = document.getElementById("adminLoggedOutView");
+  const adminLoggedInView = document.getElementById("adminLoggedInView");
+  const adminDisplayNameSpan = document.getElementById("adminDisplayName");
+  const adminAccessInfo = document.getElementById("adminAccessInfo");
+  const adminStatusPill = document.getElementById("adminStatusPill");
+  const adminAuthFeedback = document.getElementById("adminAuthFeedback");
+  const adminEmailInput = document.getElementById("adminEmail");
+  const adminPasswordInput = document.getElementById("adminPassword");
+  const adminLoginButton = document.getElementById("btnEntrarAdmin");
+  const adminLogoutButton = document.getElementById("btnSairAdmin");
+  const adminLoginButtonInitialText = adminLoginButton ? adminLoginButton.textContent : "Entrar";
+  const chartRangeSelect = document.getElementById("chartRangeSelect");
+  const chartCanvas = document.getElementById("desempenhoChefeChart");
+  const chartEmptyMessage = document.getElementById("chartEmptyMessage");
+  let desempenhoChart = null;
+  let adminPanelRevelado = false;
+
+  function normalizarEmail(email) {
+    return (email || "").trim().toLowerCase();
+  }
+
+  function usuarioTemPermissao(user) {
+    if (!user) return false;
+    if (ADMIN_UIDS.length && ADMIN_UIDS.includes(user.uid)) {
+      return true;
+    }
+    if (NORMALIZED_ADMIN_EMAILS.length) {
+      const email = normalizarEmail(user.email);
+      if (NORMALIZED_ADMIN_EMAILS.includes(email)) {
+        return true;
+      }
+    }
+    if (!ADMIN_UIDS.length && !NORMALIZED_ADMIN_EMAILS.length) {
+      return true;
+    }
+    return false;
+  }
+
+  function atualizarStatusPill() {
+    if (!adminStatusPill) return;
+    adminStatusPill.classList.remove("pill-ok", "pill-alert");
+
+    if (adminLiberado) {
+      adminStatusPill.textContent = "Administrador ativo";
+      adminStatusPill.classList.add("pill-ok");
+    } else if (usuarioAutenticado) {
+      adminStatusPill.textContent = "Sem permissão";
+      adminStatusPill.classList.add("pill-alert");
+    } else {
+      adminStatusPill.textContent = "Desconectado";
+      adminStatusPill.classList.add("pill-alert");
+    }
+  }
+
+  function garantirMotoristaAtivo() {
+    const motoristaSection = document.getElementById("motorista-tab");
+    tabButtons.forEach(btn => {
+      const isMotorista = btn.dataset.tab === "motorista-tab";
+      btn.classList.toggle("active", isMotorista);
+    });
+    tabContents.forEach(section => {
+      const isMotorista = section.id === "motorista-tab";
+      section.classList.toggle("hidden", !isMotorista);
+    });
+    motoristaSection?.classList.remove("hidden");
+  }
+
+  function atualizarBloqueioAdmin() {
+    adminOnlyElements.forEach(el => {
+      el.classList.toggle("admin-locked", !adminLiberado);
+    });
+    if (adminTabButton) {
+      adminTabButton.classList.toggle("hidden", !adminLiberado);
+    }
+    if (!adminLiberado) {
+      garantirMotoristaAtivo();
+    }
+  }
+
+  function atualizarStatusAutenticacao() {
+    if (!adminLoggedOutView || !adminLoggedInView) return;
+
+    if (usuarioAutenticado) {
+      adminLoggedOutView.classList.add("hidden");
+      adminLoggedInView.classList.remove("hidden");
+      adminDisplayNameSpan.textContent =
+        usuarioAutenticado.email || usuarioAutenticado.displayName || "Usuário autenticado";
+      adminAccessInfo.textContent = adminLiberado
+        ? "Painel liberado! Clique na aba Área do admin."
+        : "Conta autenticada, mas sem permissão de administrador.";
+    } else {
+      adminLoggedOutView.classList.remove("hidden");
+      adminLoggedInView.classList.add("hidden");
+      adminDisplayNameSpan.textContent = "-";
+      adminAccessInfo.textContent = "Use suas credenciais para liberar a Área do admin.";
+    }
+
+    atualizarStatusPill();
+    atualizarBloqueioAdmin();
+  }
+
+  function mostrarFeedbackAuth(mensagem, sucesso = false) {
+    if (!adminAuthFeedback) return;
+    if (!mensagem) {
+      adminAuthFeedback.textContent = "";
+      adminAuthFeedback.classList.add("hidden");
+      adminAuthFeedback.classList.remove("success");
+      return;
+    }
+    adminAuthFeedback.textContent = mensagem;
+    adminAuthFeedback.classList.toggle("hidden", false);
+    adminAuthFeedback.classList.toggle("success", sucesso);
+  }
+
+  function alterarEstadoBotaoLogin(carregando) {
+    if (!adminLoginButton) return;
+    adminLoginButton.disabled = carregando;
+    adminLoginButton.textContent = carregando ? "Entrando..." : adminLoginButtonInitialText;
+  }
+
+  document.addEventListener("keydown", event => {
+    if (event.ctrlKey && event.shiftKey && event.code === "KeyA") {
+      if (adminAccessCard && adminAccessCard.classList.contains("hidden")) {
+        revelarCartaoAdmin(true);
+        mostrarFeedbackAuth("Área restrita habilitada. Faça login para liberar o painel do admin.", true);
+      }
+    }
+  });
+
+  function traduzirErroAuth(codigo) {
+    const mensagens = {
+      "auth/invalid-email": "E-mail inválido.",
+      "auth/user-disabled": "Usuário desativado pelo administrador.",
+      "auth/user-not-found": "Usuário não encontrado.",
+      "auth/wrong-password": "Senha incorreta.",
+      "auth/invalid-credential": "Credenciais inválidas.",
+      default: "Não foi possível entrar. Tente novamente."
+    };
+    return mensagens[codigo] || mensagens.default;
+  }
+
+  function revelarCartaoAdmin(manual = false) {
+    if (manual) {
+      adminPanelRevelado = true;
+    }
+    if (adminAccessCard) {
+      adminAccessCard.classList.remove("hidden");
+    }
+  }
+
+  function ocultarCartaoAdmin(force = false) {
+    if (!adminAccessCard) return;
+    if (force) {
+      adminPanelRevelado = false;
+      adminAccessCard.classList.add("hidden");
+      return;
+    }
+    if (adminLiberado || adminPanelRevelado) return;
+    adminAccessCard.classList.add("hidden");
+  }
+
+  if (adminLoginButton) {
+    adminLoginButton.addEventListener("click", async () => {
+      const email = adminEmailInput.value.trim();
+      const senha = adminPasswordInput.value;
+
+      if (!email || !senha) {
+        mostrarFeedbackAuth("Informe e-mail e senha para continuar.");
+        return;
+      }
+
+      alterarEstadoBotaoLogin(true);
+      mostrarFeedbackAuth("");
+      try {
+        await auth.signInWithEmailAndPassword(email, senha);
+        mostrarFeedbackAuth("Autenticado com sucesso! Verificando permissões...", true);
+        adminPasswordInput.value = "";
+      } catch (error) {
+        console.error("Erro ao autenticar administrador", error);
+        mostrarFeedbackAuth(traduzirErroAuth(error.code), false);
+      } finally {
+        alterarEstadoBotaoLogin(false);
+      }
+    });
+  }
+
+  if (adminLogoutButton) {
+    adminLogoutButton.addEventListener("click", async () => {
+      try {
+        await auth.signOut();
+        mostrarFeedbackAuth("Sessão encerrada.", true);
+        ocultarCartaoAdmin(true);
+      } catch (error) {
+        console.error("Erro ao sair", error);
+        mostrarFeedbackAuth("Não foi possível encerrar a sessão.", false);
+      }
+    });
+  }
+
+  if (chartRangeSelect) {
+    chartRangeSelect.addEventListener("change", () => {
+      atualizarGraficoDesempenho();
+    });
+  }
+
+  auth.onAuthStateChanged(user => {
+    usuarioAutenticado = user;
+    adminLiberado = usuarioTemPermissao(user);
+    if (user) {
+      revelarCartaoAdmin();
+    } else {
+      ocultarCartaoAdmin();
+    }
+
+    if (!adminLiberado && user) {
+      mostrarFeedbackAuth("Esta conta não possui permissão.");
+    } else {
+      mostrarFeedbackAuth("");
+    }
+
+    atualizarStatusAutenticacao();
+
+    if (adminLiberado) {
+      atualizarVisaoChefe();
+    }
+    atualizarGraficoDesempenho();
+  });
+
+  // ===================== ÁREA DO MOTORISTA =====================
+
+  // Define a data atual no campo Data quando abrir
+  (function definirDataHoje() {
+    const hoje = new Date();
+    const iso = hoje.toISOString().slice(0, 10);
+    dataFreteInput.value = iso;
+  })();
+
+  function atualizarFreteAutomaticamente() {
+    const pesoLiquido = parseFloat(pesoLiquidoInput.value.replace(",", "."));
+    const valorTonelada = parseFloat(valorToneladaInput.value.replace(",", "."));
+
+    if (isNaN(pesoLiquido) || isNaN(valorTonelada)) {
+      freteTotalInput.value = "";
+      return;
+    }
+
+    const frete = pesoLiquido * valorTonelada;
+    freteTotalInput.value = frete.toFixed(2);
+  }
+
+  ["input", "change"].forEach(evento => {
+    pesoLiquidoInput.addEventListener(evento, atualizarFreteAutomaticamente);
+    valorToneladaInput.addEventListener(evento, atualizarFreteAutomaticamente);
+  });
+  atualizarFreteAutomaticamente();
+
+  // Botão: salvar frete
+  document.getElementById("btnSalvarFrete").addEventListener("click", () => {
+    const nomeMotorista = motoristaNomeInput.value.trim();
+    const caminhaoId = caminhaoIdInput.value.trim();
+    const dataFrete = dataFreteInput.value;
+    const nota = notaFreteInput.value.trim();
+    const cte = cteFreteInput.value.trim();
+
+    const pesoBruto = parseFloat(pesoBrutoInput.value.replace(",", "."));
+    const pesoLiquido = parseFloat(pesoLiquidoInput.value.replace(",", "."));
+    const valorTonelada = parseFloat(valorToneladaInput.value.replace(",", "."));
+    atualizarFreteAutomaticamente();
+    let freteTotal = parseFloat(freteTotalInput.value.replace(",", "."));
+
+    // Valida campos básicos
+    if (!nomeMotorista || !caminhaoId || !dataFrete) {
+      alert("Preencha pelo menos: nome do motorista, caminhão e data.");
+      return;
+    }
+
+    if (isNaN(pesoLiquido) || isNaN(valorTonelada)) {
+      alert("Informe pelo menos peso líquido e valor por tonelada.");
+      return;
+    }
+
+    // Se o campo frete estiver vazio, calcula automaticamente
+    if (isNaN(freteTotal)) {
+      freteTotal = pesoLiquido * valorTonelada;
+    }
+
+    const semana = calcularSemanaDoMes(dataFrete);
+
+    const novoFrete = {
+      id: Date.now(),
+      nomeMotorista,
+      caminhaoId,
+      dataFrete,   // ISO yyyy-mm-dd
+      semana,
+      nota,
+      cte,
+      pesoBruto: isNaN(pesoBruto) ? null : pesoBruto,
+      pesoLiquido,
+        valorTonelada,
+        freteTotal
+      };
+
+    fretes.push(novoFrete);
+    salvarFretes(fretes);
+    atualizarTabelaMotorista();
+    atualizarVisaoChefe();
+    atualizarGraficoDesempenho();
+    atualizarOpcoesFiltrosChefe();
+    atualizarDatalistMotoristas();
+    alert("Frete salvo com sucesso!");
+
+    // Opcional: limpar alguns campos
+    notaFreteInput.value = "";
+    cteFreteInput.value = "";
+    pesoBrutoInput.value = "";
+    pesoLiquidoInput.value = "";
+    valorToneladaInput.value = "";
+    freteTotalInput.value = "";
+  });
+
+  btnSalvarSalario?.addEventListener("click", () => {
+    const nome = salarioMotoristaNomeInput.value.trim();
+    const salario = parseFloat(salarioMotoristaValorInput.value.replace(",", "."));
+
+    if (!nome || isNaN(salario) || salario < 0) {
+      alert("Informe um nome de motorista e um salário válido.");
+      return;
+    }
+
+    const slug = normalizarNomeMotorista(nome);
+    const registro = { slug, nome, salario };
+    const existenteIndex = salariosMotoristas.findIndex(item => item.slug === slug);
+
+    if (existenteIndex >= 0) {
+      salariosMotoristas[existenteIndex] = registro;
+    } else {
+      salariosMotoristas.push(registro);
+    }
+
+    salvarSalarios(salariosMotoristas);
+    atualizarTabelaSalarios();
+    atualizarVisaoChefe();
+    atualizarDatalistMotoristas();
+
+    salarioMotoristaNomeInput.value = "";
+    salarioMotoristaValorInput.value = "";
+  });
+
+  function atualizarTabelaMotorista() {
+    tabelaFretesMotoristaBody.innerHTML = "";
+
+    let totalFretes = 0;
+
+    fretes
+      .sort((a, b) => (a.dataFrete || "").localeCompare(b.dataFrete || ""))
+      .forEach(f => {
+        const tr = document.createElement("tr");
+
+        const tdData = document.createElement("td");
+        tdData.textContent = f.dataFrete || "-";
+
+        const tdSemana = document.createElement("td");
+        if (f.semana) {
+          tdSemana.innerHTML = `<span class="badge badge-week">Sem ${f.semana}</span>`;
+        } else {
+          tdSemana.textContent = "-";
+        }
+
+        const tdMotorista = document.createElement("td");
+        tdMotorista.textContent = f.nomeMotorista || "-";
+
+        const tdCaminhao = document.createElement("td");
+        tdCaminhao.textContent = f.caminhaoId || "-";
+
+        const tdNota = document.createElement("td");
+        tdNota.textContent = f.nota || "-";
+
+        const tdCte = document.createElement("td");
+        tdCte.textContent = f.cte || "-";
+
+      const tdPesoLiquido = document.createElement("td");
+      tdPesoLiquido.className = "text-right";
+      tdPesoLiquido.textContent = f.pesoLiquido != null ? formatarNumero(f.pesoLiquido) : "-";
+
+      const tdValorTon = document.createElement("td");
+      tdValorTon.className = "text-right";
+      tdValorTon.textContent = f.valorTonelada != null ? formatarMoeda(f.valorTonelada) : "-";
+
+        const tdFrete = document.createElement("td");
+        tdFrete.className = "text-right";
+        tdFrete.textContent = f.freteTotal != null ? formatarMoeda(f.freteTotal) : "-";
+
+        const tdAcoes = document.createElement("td");
+        const btnExcluir = document.createElement("button");
+        btnExcluir.textContent = "Excluir";
+        btnExcluir.className = "btn btn-danger";
+        btnExcluir.style.fontSize = "11px";
+        btnExcluir.addEventListener("click", () => {
+              if (confirm("Deseja realmente excluir este frete?")) {
+                fretes = fretes.filter(x => x.id !== f.id);
+                salvarFretes(fretes);
+              atualizarTabelaMotorista();
+              atualizarVisaoChefe();
+              atualizarGraficoDesempenho();
+              atualizarOpcoesFiltrosChefe();
+              atualizarDatalistMotoristas();
+            }
+          });
+        tdAcoes.appendChild(btnExcluir);
+
+        tr.appendChild(tdData);
+        tr.appendChild(tdSemana);
+        tr.appendChild(tdMotorista);
+        tr.appendChild(tdCaminhao);
+        tr.appendChild(tdNota);
+      tr.appendChild(tdCte);
+      tr.appendChild(tdPesoLiquido);
+      tr.appendChild(tdValorTon);
+      tr.appendChild(tdFrete);
+      tr.appendChild(tdAcoes);
+
+        tabelaFretesMotoristaBody.appendChild(tr);
+
+        if (f.freteTotal) {
+          totalFretes += f.freteTotal;
+        }
+      });
+
+    totalFretesMotoristaSpan.textContent = formatarMoeda(totalFretes);
+  }
+  // Define o mês atual no filtro do chefe
+  (function definirMesAtualChefe() {
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+    filtroMesChefeInput.value = `${ano}-${mes}`;
+  })();
+
+  document.getElementById("btnAplicarFiltroChefe").addEventListener("click", () => {
+    persistirPercentualComissao();
+    atualizarVisaoChefe();
+    atualizarGraficoDesempenho();
+  });
+
+  [filtroMotoristaChefeSelect, filtroCaminhaoChefeSelect].forEach(selectEl => {
+    selectEl?.addEventListener("change", () => {
+      atualizarVisaoChefe();
+      atualizarGraficoDesempenho();
+    });
+  });
+
+  percentualComissaoChefeInput?.addEventListener("change", () => {
+    const valor = obterPercentualComissao();
+    percentualComissaoChefeInput.value = valor;
+    persistirPercentualComissao();
+    atualizarVisaoChefe();
+  });
+
+  function obterMesReferenciaChefe() {
+    return filtroMesChefeInput.value || new Date().toISOString().slice(0, 7);
+  }
+
+  function filtrarFretesPorMes(mesISO) {
+    if (!mesISO) return [];
+    return fretes.filter(f => (f.dataFrete || "").startsWith(mesISO));
+  }
+
+  function atualizarVisaoChefe() {
+    const mesSelecionado = obterMesReferenciaChefe();
+    if (!mesSelecionado) {
+      alert("Selecione um mês antes de aplicar o filtro.");
+      return;
+    }
+    const comissaoPercent = obterPercentualComissao();
+    const fretesFiltrados = obterFretesFiltrados();
+    preencherTabelaFretesChefe(fretesFiltrados);
+    const { totalFolha, ranking } = renderizarCardsMotoristas(fretesFiltrados, comissaoPercent);
+    renderizarResumoMes(fretesFiltrados, comissaoPercent, totalFolha);
+    const resumoSemanas = renderizarResumoSemanalGeral(fretesFiltrados, comissaoPercent);
+    atualizarIndicadores(fretesFiltrados, ranking, resumoSemanas);
+  }
+
+  function formatarMesCurto(anoMes) {
+    if (!anoMes) return "";
+    const [ano, mes] = anoMes.split("-");
+    return `${mes}/${ano}`;
+  }
+
+  function gerarDadosSemanaisGrafico() {
+    const mesSelecionado = obterMesReferenciaChefe();
+    const fretesMes = obterFretesFiltrados();
+    const mapa = {};
+
+    fretesMes.forEach(f => {
+      const semana = f.semana || calcularSemanaDoMes(f.dataFrete);
+      const total = typeof f.freteTotal === "number" ? f.freteTotal : parseFloat(f.freteTotal);
+      if (!semana || isNaN(total)) return;
+      mapa[semana] = (mapa[semana] || 0) + total;
+    });
+
+    const semanasOrdenadas = Object.keys(mapa).sort((a, b) => Number(a) - Number(b));
+    return {
+      labels: semanasOrdenadas.map(sem => `Sem ${sem}`),
+      valores: semanasOrdenadas.map(sem => Number(mapa[sem].toFixed(2))),
+      descricao: `Total semanal (${formatarMesCurto(mesSelecionado)})`
+    };
+  }
+
+  function gerarDadosMensaisGrafico() {
+    const mapa = {};
+
+    fretes.forEach(f => {
+      if (!f.dataFrete) return;
+      const total = typeof f.freteTotal === "number" ? f.freteTotal : parseFloat(f.freteTotal);
+      if (isNaN(total)) return;
+      const chave = f.dataFrete.slice(0, 7);
+      if (!chave) return;
+      mapa[chave] = (mapa[chave] || 0) + total;
+    });
+
+    const mesesOrdenados = Object.keys(mapa).sort((a, b) => a.localeCompare(b));
+    return {
+      labels: mesesOrdenados.map(formatarMesCurto),
+      valores: mesesOrdenados.map(mes => Number(mapa[mes].toFixed(2))),
+      descricao: "Total mensal (histórico)"
+    };
+  }
+
+  function gerarDadosAnuaisGrafico() {
+    const mapa = {};
+
+    fretes.forEach(f => {
+      if (!f.dataFrete) return;
+      const total = typeof f.freteTotal === "number" ? f.freteTotal : parseFloat(f.freteTotal);
+      if (isNaN(total)) return;
+      const ano = f.dataFrete.slice(0, 4);
+      if (!ano) return;
+      mapa[ano] = (mapa[ano] || 0) + total;
+    });
+
+    const anosOrdenados = Object.keys(mapa).sort((a, b) => a.localeCompare(b));
+    return {
+      labels: anosOrdenados,
+      valores: anosOrdenados.map(ano => Number(mapa[ano].toFixed(2))),
+      descricao: "Total anual"
+    };
+  }
+
+  function obterDatasetGrafico(tipo) {
+    switch (tipo) {
+      case "meses":
+        return gerarDadosMensaisGrafico();
+      case "anos":
+        return gerarDadosAnuaisGrafico();
+      default:
+        return gerarDadosSemanaisGrafico();
+    }
+  }
+
+  function atualizarGraficoDesempenho() {
+    if (!chartCanvas || typeof Chart === "undefined") return;
+
+    if (!adminLiberado) {
+      chartEmptyMessage?.classList.remove("hidden");
+      if (desempenhoChart) {
+        desempenhoChart.data.labels = [];
+        desempenhoChart.data.datasets[0].data = [];
+        desempenhoChart.update();
+      }
+      return;
+    }
+
+    const tipo = chartRangeSelect?.value || "semanas";
+    const dataset = obterDatasetGrafico(tipo);
+    const possuiDados = dataset.labels.length > 0;
+
+    if (chartEmptyMessage) {
+      chartEmptyMessage.classList.toggle("hidden", possuiDados);
+    }
+
+    if (!desempenhoChart) {
+      const ctx = chartCanvas.getContext("2d");
+      desempenhoChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: dataset.labels,
+          datasets: [
+            {
+              label: dataset.descricao,
+              data: dataset.valores,
+              borderColor: "#111827",
+              backgroundColor: "rgba(17, 24, 39, 0.25)",
+              tension: 0.3,
+              fill: true,
+              pointRadius: 4,
+              pointBackgroundColor: "#111827"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                label: context => formatarMoeda(context.parsed.y || 0)
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: valor => formatarMoeda(Number(valor))
+              }
+            }
+          }
+        }
+      });
+      return;
+    }
+
+    desempenhoChart.data.labels = dataset.labels;
+    desempenhoChart.data.datasets[0].data = dataset.valores;
+    desempenhoChart.data.datasets[0].label = dataset.descricao;
+    desempenhoChart.update();
+  }
+
+  // ===================== INICIALIZAÇÃO =====================
+
+  definirPercentualComissaoInicial();
+  // Renderiza inicialmente a visão do motorista com os fretes já salvos no localStorage
+  atualizarTabelaMotorista();
+  // Também já atualiza o painel do administrador com o mês atual
+  atualizarOpcoesFiltrosChefe();
+  atualizarVisaoChefe();
+  atualizarGraficoDesempenho();
+  atualizarTabelaSalarios();
+  atualizarDatalistMotoristas();
+
+  // ===================== PWA (APENAS COMENTADO POR ENQUANTO) =====================
+  // Depois você pode registrar um service worker para tornar offline:
+  /*
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").then(() => {
+      console.log("Service Worker registrado.");
+    });
+  }
+  */
+</script>
+
+</body>
+</html>
