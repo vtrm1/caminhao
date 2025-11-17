@@ -1117,6 +1117,10 @@
       atualizarResumoMotorista();
       atualizarVisaoChefe();
       atualizarGraficoDesempenho();
+    }, error => {
+      console.error("Erro no listener de perfil", error);
+      mostrarFeedbackLogin("Sem permissão para carregar seu perfil. Confirme seu acesso com o administrador.");
+      auth.signOut();
     });
   }
 
@@ -1131,6 +1135,9 @@
         atualizarTabelaSalarios();
         atualizarOpcoesFiltrosChefe();
         atualizarResumoMotorista();
+      }, error => {
+        console.error("Erro ao listar motoristas", error);
+        mostrarFeedbackLogin("Sem permissão para carregar motoristas. Apenas administradores podem acessar.");
       });
   }
 
@@ -1150,6 +1157,9 @@
       atualizarGraficoDesempenho();
       atualizarOpcoesFiltrosChefe();
       atualizarDatalistMotoristas();
+    }, error => {
+      console.error("Erro ao sincronizar fretes", error);
+      mostrarFeedbackLogin("Sem permissão para carregar fretes. Confirme se seu perfil está autorizado.");
     });
   }
 
@@ -1167,16 +1177,21 @@
     }
 
     atualizarPillLogin("Validando...", true);
-    perfilAtual = await carregarPerfil(user.uid);
-    if (!perfilAtual) {
-      await db.collection(COLECAO_USUARIOS).doc(user.uid).set({
-        nome: user.displayName || user.email || "Usuário",
-        email: user.email || "",
-        tipo: "motorista",
-        salario: 0,
-        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+    mostrarFeedbackLogin("");
+
+    try {
       perfilAtual = await carregarPerfil(user.uid);
+    } catch (error) {
+      console.error("Erro ao carregar perfil", error);
+      mostrarFeedbackLogin("Não foi possível carregar seu perfil. Verifique suas permissões ou fale com o administrador.");
+      await auth.signOut();
+      return;
+    }
+
+    if (!perfilAtual) {
+      mostrarFeedbackLogin("Seu usuário não possui perfil cadastrado. Peça ao administrador para concluir o cadastro.");
+      await auth.signOut();
+      return;
     }
 
     iniciarListenerPerfil(user.uid);
