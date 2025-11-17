@@ -642,6 +642,43 @@
         </div>
       </div>
     </div>
+
+    <div class="card" id="cardResumoMotorista">
+      <div class="card-header-between">
+        <div>
+          <h3 class="section-title">Resumo financeiro do motorista</h3>
+          <p class="info-text">Comissão fixa de 10% sobre o frete bruto somada ao salário definido pelo administrador.</p>
+        </div>
+      </div>
+
+      <p class="info-text" id="mensagemResumoMotorista">Informe o nome do motorista para ver o resumo.</p>
+      <div class="summary-grid hidden" id="resumoMotoristaGrid">
+        <div class="summary-box">
+          <span class="summary-subtext">Motorista</span>
+          <div class="summary-value" id="resumoMotoristaNome">-</div>
+        </div>
+        <div class="summary-box">
+          <span class="summary-subtext">Total de fretes</span>
+          <div class="summary-value" id="resumoMotoristaFrete">R$ 0,00</div>
+          <p class="summary-subtext">Soma de todas as viagens lançadas</p>
+        </div>
+        <div class="summary-box">
+          <span class="summary-subtext">Comissão (10%)</span>
+          <div class="summary-value" id="resumoMotoristaComissao">R$ 0,00</div>
+          <p class="summary-subtext">Calculada sobre o frete bruto</p>
+        </div>
+        <div class="summary-box">
+          <span class="summary-subtext">Salário definido pelo admin</span>
+          <div class="summary-value" id="resumoMotoristaSalario">R$ 0,00</div>
+          <p class="summary-subtext" id="resumoMotoristaSalarioHint">Atualize o salário na área do admin.</p>
+        </div>
+        <div class="summary-box">
+          <span class="summary-subtext">Total previsto para pagamento</span>
+          <div class="summary-value" id="resumoMotoristaTotalPrevisto">R$ 0,00</div>
+          <p class="summary-subtext">Salário + comissão</p>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ========== ÁREA DO ADMIN ========== -->
@@ -976,6 +1013,14 @@
   const freteTotalInput = document.getElementById("freteTotal");
   const tabelaFretesMotoristaBody = document.querySelector("#tabelaFretesMotorista tbody");
   const totalFretesMotoristaSpan = document.getElementById("totalFretesMotorista");
+  const mensagemResumoMotorista = document.getElementById("mensagemResumoMotorista");
+  const resumoMotoristaGrid = document.getElementById("resumoMotoristaGrid");
+  const resumoMotoristaNome = document.getElementById("resumoMotoristaNome");
+  const resumoMotoristaFrete = document.getElementById("resumoMotoristaFrete");
+  const resumoMotoristaComissao = document.getElementById("resumoMotoristaComissao");
+  const resumoMotoristaSalario = document.getElementById("resumoMotoristaSalario");
+  const resumoMotoristaSalarioHint = document.getElementById("resumoMotoristaSalarioHint");
+  const resumoMotoristaTotalPrevisto = document.getElementById("resumoMotoristaTotalPrevisto");
 
   const filtroMesChefeInput = document.getElementById("filtroMesChefe");
   const filtroMotoristaChefeSelect = document.getElementById("filtroMotoristaChefe");
@@ -1130,6 +1175,48 @@
         motoristasDatalist.appendChild(option);
       });
     atualizarOpcoesFiltrosChefe();
+  }
+
+  function atualizarResumoMotorista() {
+    if (!mensagemResumoMotorista || !resumoMotoristaGrid) return;
+
+    const nomeSelecionado = motoristaNomeInput?.value.trim();
+    if (!nomeSelecionado) {
+      mensagemResumoMotorista.textContent = "Informe o nome do motorista para ver o resumo.";
+      resumoMotoristaGrid.classList.add("hidden");
+      return;
+    }
+
+    const slug = normalizarNomeMotorista(nomeSelecionado);
+    const fretesDoMotorista = fretes.filter(
+      f => normalizarNomeMotorista(f.nomeMotorista) === slug
+    );
+
+    const totalFrete = fretesDoMotorista.reduce(
+      (acc, f) => acc + (Number(f.freteTotal) || 0),
+      0
+    );
+    const comissao = totalFrete * (COMISSAO_PADRAO / 100);
+    const salario = obterSalarioMotorista(nomeSelecionado);
+    const totalPrevisto = salario + comissao;
+
+    resumoMotoristaGrid.classList.remove("hidden");
+    resumoMotoristaNome.textContent = nomeSelecionado;
+    resumoMotoristaFrete.textContent = formatarMoeda(totalFrete);
+    resumoMotoristaComissao.textContent = formatarMoeda(comissao);
+    resumoMotoristaSalario.textContent = formatarMoeda(salario);
+    resumoMotoristaTotalPrevisto.textContent = formatarMoeda(totalPrevisto);
+
+    const salarioDefinido = salario > 0;
+    resumoMotoristaSalarioHint.textContent = salarioDefinido
+      ? "Valor cadastrado pelo administrador."
+      : "Sem salário definido ainda; peça para o administrador atualizar.";
+
+    if (!fretesDoMotorista.length) {
+      mensagemResumoMotorista.textContent = "Nenhum frete lançado para este motorista neste dispositivo.";
+    } else {
+      mensagemResumoMotorista.textContent = "Resumo calculado com base nas viagens salvas neste dispositivo.";
+    }
   }
 
   function atualizarOpcoesFiltrosChefe() {
@@ -1734,6 +1821,8 @@
   });
   atualizarFreteAutomaticamente();
 
+  motoristaNomeInput?.addEventListener("input", atualizarResumoMotorista);
+
   // Botão: salvar frete
   document.getElementById("btnSalvarFrete").addEventListener("click", async () => {
     const nomeMotorista = motoristaNomeInput.value.trim();
@@ -1823,6 +1912,7 @@
     atualizarTabelaSalarios();
     atualizarVisaoChefe();
     atualizarDatalistMotoristas();
+    atualizarResumoMotorista();
 
     salarioMotoristaNomeInput.value = "";
     salarioMotoristaValorInput.value = "";
@@ -1910,6 +2000,7 @@
       });
 
     totalFretesMotoristaSpan.textContent = formatarMoeda(totalFretes);
+    atualizarResumoMotorista();
   }
   // Define o mês atual no filtro do chefe
   (function definirMesAtualChefe() {
