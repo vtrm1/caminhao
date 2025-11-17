@@ -5,6 +5,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isSuperAdmin() {
+      return signedIn() && request.auth.uid == "INGKKP7ibHMZ0NX5YE8VTGgui592";
+    }
+
     function currentUserData() {
       return signedIn()
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
@@ -12,7 +16,7 @@ service cloud.firestore {
     }
 
     function isAdminProfile() {
-      return signedIn() && currentUserData().tipo == "admin";
+      return isSuperAdmin() || (signedIn() && currentUserData() != null && currentUserData().tipo == "admin");
     }
 
     function isOwner(userId) {

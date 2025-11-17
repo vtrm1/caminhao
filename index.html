@@ -931,6 +931,7 @@
   const COLECAO_FRETES = "fretes";
   const COLECAO_USUARIOS = "users";
   const COMISSAO_PADRAO = 10;
+  const SUPER_ADMIN_UID = "INGKKP7ibHMZ0NX5YE8VTGgui592";
 
   let usuarioAtual = null;
   let perfilAtual = null;
@@ -1075,7 +1076,7 @@
   }
 
   function ehAdmin() {
-    return perfilAtual?.tipo === "admin";
+    return perfilAtual?.tipo === "admin" || usuarioAtual?.uid === SUPER_ADMIN_UID;
   }
 
   function aplicarVisibilidadePorPapel() {
@@ -1111,7 +1112,17 @@
   function iniciarListenerPerfil(uid) {
     unsubscribePerfil?.();
     unsubscribePerfil = db.collection(COLECAO_USUARIOS).doc(uid).onSnapshot(doc => {
-      perfilAtual = doc.exists ? { id: doc.id, ...doc.data() } : null;
+      if (doc.exists) {
+        perfilAtual = { id: doc.id, ...doc.data() };
+      } else if (usuarioAtual?.uid === SUPER_ADMIN_UID) {
+        perfilAtual = {
+          id: uid,
+          nome: usuarioAtual.displayName || usuarioAtual.email || "Administrador",
+          tipo: "admin",
+        };
+      } else {
+        perfilAtual = null;
+      }
       usuarioNomeSpan.textContent = perfilAtual?.nome || usuarioAtual?.displayName || usuarioAtual?.email || "-";
       usuarioTipoSpan.textContent = perfilAtual?.tipo || "-";
       atualizarPillLogin(perfilAtual ? "Logado" : "Perfil pendente", Boolean(perfilAtual));
