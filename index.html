@@ -1079,14 +1079,19 @@
   }
 
   function aplicarVisibilidadePorPapel() {
-    const logado = Boolean(usuarioAtual && perfilAtual);
-    tabs?.classList.toggle("hidden", !logado);
-    tabContents.forEach(tab => tab.classList.toggle("hidden", !logado));
+    const autenticado = Boolean(usuarioAtual);
+    const perfilPronto = Boolean(perfilAtual);
+
+    loginCard?.classList.toggle("hidden", autenticado && perfilPronto);
+    loginSessaoAtiva?.classList.toggle("hidden", !autenticado);
+
+    tabs?.classList.toggle("hidden", !autenticado || !perfilPronto);
+    tabContents.forEach(tab => tab.classList.toggle("hidden", !autenticado || !perfilPronto));
 
     adminOnlyElements.forEach(el => el.classList.toggle("hidden", !ehAdmin()));
     adminTabButton?.classList.toggle("hidden", !ehAdmin());
 
-    if (logado) {
+    if (autenticado && perfilPronto) {
       const destino = ehAdmin() ? "chefe-tab" : "motorista-tab";
       tabButtons.forEach(btn => {
         const ativo = btn.dataset.tab === destino;
@@ -1094,9 +1099,6 @@
       });
       tabContents.forEach(sec => sec.classList.toggle("hidden", sec.id !== destino));
     }
-
-    loginCard?.classList.toggle("hidden", logado);
-    loginSessaoAtiva?.classList.toggle("hidden", !logado);
   }
 
   async function carregarPerfil(uid) {
@@ -1110,9 +1112,12 @@
     unsubscribePerfil?.();
     unsubscribePerfil = db.collection(COLECAO_USUARIOS).doc(uid).onSnapshot(doc => {
       perfilAtual = doc.exists ? { id: doc.id, ...doc.data() } : null;
-      usuarioNomeSpan.textContent = perfilAtual?.nome || usuarioAtual?.email || "-";
+      usuarioNomeSpan.textContent = perfilAtual?.nome || usuarioAtual?.displayName || usuarioAtual?.email || "-";
       usuarioTipoSpan.textContent = perfilAtual?.tipo || "-";
-      atualizarPillLogin("Logado", true);
+      atualizarPillLogin(perfilAtual ? "Logado" : "Perfil pendente", Boolean(perfilAtual));
+      if (!perfilAtual) {
+        mostrarFeedbackLogin("Perfil não encontrado. Peça ao administrador para concluir seu cadastro.");
+      }
       aplicarVisibilidadePorPapel();
       atualizarResumoMotorista();
       atualizarVisaoChefe();
@@ -1176,23 +1181,11 @@
       return;
     }
 
+    loginSessaoAtiva?.classList.remove("hidden");
+    usuarioNomeSpan.textContent = user.displayName || user.email || "-";
+    usuarioTipoSpan.textContent = "validando...";
     atualizarPillLogin("Validando...", true);
     mostrarFeedbackLogin("");
-
-    try {
-      perfilAtual = await carregarPerfil(user.uid);
-    } catch (error) {
-      console.error("Erro ao carregar perfil", error);
-      mostrarFeedbackLogin("Não foi possível carregar seu perfil. Verifique suas permissões ou fale com o administrador.");
-      await auth.signOut();
-      return;
-    }
-
-    if (!perfilAtual) {
-      mostrarFeedbackLogin("Seu usuário não possui perfil cadastrado. Peça ao administrador para concluir o cadastro.");
-      await auth.signOut();
-      return;
-    }
 
     iniciarListenerPerfil(user.uid);
     iniciarListenerMotoristas();
