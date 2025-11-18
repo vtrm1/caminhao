@@ -1542,10 +1542,12 @@
     const base = db.collection(COLECAO_FRETES);
     const query = ehAdmin()
       ? base.orderBy("data")
-      : base.where("userId", "==", usuarioAtual.uid).orderBy("data");
+      : base.where("userId", "==", usuarioAtual.uid);
 
     unsubscribeFretes = query.onSnapshot(snapshot => {
-      fretes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      fretes = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => (a.data || "").localeCompare(b.data || ""));
       atualizarTabelaMotorista();
       atualizarVisaoChefe();
       atualizarGraficoDesempenho();
