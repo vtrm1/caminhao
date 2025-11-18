@@ -823,8 +823,8 @@
 
       <div class="form-grid">
         <div>
-          <label for="motoristaNome">Nome do motorista</label>
-          <input type="text" id="motoristaNome" placeholder="Ex: João da Silva" />
+          <label for="motoristaNome">Motorista</label>
+          <input type="text" id="motoristaNome" placeholder="Nome do motorista" readonly />
         </div>
         <div>
           <label for="caminhaoId">Caminhão (identificação)</label>
@@ -870,9 +870,6 @@
 
     <div class="card">
       <h3>Fretes lançados</h3>
-      <p class="info-text">
-        Os fretes ficam no Firestore com sincronização offline. Motoristas só enxergam e editam os próprios registros.
-      </p>
 
       <div class="table-wrapper">
         <table id="tabelaFretesMotorista">
@@ -908,11 +905,10 @@
       <div class="card-header-between">
         <div>
           <h3 class="section-title">Resumo financeiro do motorista</h3>
-          <p class="info-text">Comissão fixa de 10% sobre o frete bruto somada ao salário definido pelo administrador.</p>
         </div>
       </div>
 
-      <p class="info-text" id="mensagemResumoMotorista">Informe o nome do motorista para ver o resumo.</p>
+      <p class="info-text" id="mensagemResumoMotorista">Resumo atualizado com os fretes do usuário logado.</p>
       <div class="summary-grid hidden" id="resumoMotoristaGrid">
         <div class="summary-box">
           <span class="summary-subtext">Motorista</span>
@@ -1305,12 +1301,28 @@
   function limparDadosLocais() {
     fretes = [];
     motoristas = [];
+    if (motoristaNomeInput) motoristaNomeInput.value = "";
+    if (caminhaoIdInput) caminhaoIdInput.value = "";
     atualizarTabelaMotorista();
     atualizarTabelaSalarios();
     atualizarTabelaMotoristasAdmin();
     atualizarResumoMotorista();
     atualizarVisaoChefe();
     atualizarGraficoDesempenho();
+  }
+
+  function aplicarDadosPerfilNosCampos() {
+    if (!motoristaNomeInput || !caminhaoIdInput) return;
+
+    const nome = perfilAtual?.nome || usuarioAtual?.displayName || usuarioAtual?.email || "";
+    motoristaNomeInput.value = nome;
+    motoristaNomeInput.readOnly = true;
+    motoristaNomeInput.placeholder = nome || "Nome do motorista";
+
+    const caminhao = perfilAtual?.caminhao || "";
+    if (caminhao) {
+      caminhaoIdInput.value = caminhao;
+    }
   }
 
   function atualizarBadgeUsuario() {
@@ -1446,6 +1458,7 @@
           garantirPerfilUsuario(usuarioAtual).catch(() => {});
         }
       }
+      aplicarDadosPerfilNosCampos();
       atualizarBadgeUsuario();
       if (!perfilAtual) {
         mostrarFeedbackLogin("Perfil não encontrado. Peça ao administrador para concluir seu cadastro.");
@@ -1593,7 +1606,7 @@
       return;
     }
 
-    const caminhaoId = caminhaoIdInput.value.trim();
+    const caminhaoId = caminhaoIdInput.value.trim() || perfilAtual.caminhao || "";
     const dataFrete = dataFreteInput.value;
     const nota = notaFreteInput.value.trim();
     const cte = cteFreteInput.value.trim();
@@ -1761,8 +1774,8 @@
       : "Sem salário definido ainda; peça para o administrador atualizar.";
 
     mensagemResumoMotorista.textContent = fretesDoMotorista.length
-      ? "Resumo calculado a partir dos fretes sincronizados no Firestore."
-      : "Nenhum frete lançado para este motorista.";
+      ? "Resumo calculado a partir dos fretes lançados."
+      : "Nenhum frete lançado ainda para este usuário.";
   }
 
   function atualizarOpcoesFiltrosChefe() {
