@@ -73,16 +73,16 @@
     }
 
     .login-card {
-      width: min(960px, 100%);
+      width: min(480px, 100%);
       background: rgba(255, 255, 255, 0.92);
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(15, 23, 42, 0.16);
       border: 1px solid rgba(148, 163, 184, 0.35);
       padding: 32px;
       backdrop-filter: blur(6px);
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
     .login-card h1 {
@@ -133,10 +133,15 @@
 
     .login-actions {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 12px;
-      align-items: center;
-      justify-content: flex-start;
+      align-items: stretch;
+    }
+
+    .login-actions button,
+    .login-actions .google-btn {
+      width: 100%;
+      justify-content: center;
     }
 
     .btn-primary {
@@ -928,7 +933,7 @@
 
       <div class="card-header-between">
         <div>
-          <h3 class="section-title">Resumo financeiro do motorista</h3>
+          <h3 class="section-title">Resumo financeiro</h3>
         </div>
       </div>
 
@@ -939,11 +944,6 @@
           <div class="summary-value" id="resumoMotoristaNome">-</div>
         </div>
         <div class="summary-box">
-          <span class="summary-subtext">Total de fretes</span>
-          <div class="summary-value" id="resumoMotoristaFrete">R$ 0,00</div>
-          <p class="summary-subtext">Soma de todas as viagens lançadas</p>
-        </div>
-        <div class="summary-box">
           <span class="summary-subtext">Comissão (10%)</span>
           <div class="summary-value" id="resumoMotoristaComissao">R$ 0,00</div>
           <p class="summary-subtext">Calculada sobre o frete bruto</p>
@@ -951,7 +951,6 @@
         <div class="summary-box">
           <span class="summary-subtext">Salário</span>
           <div class="summary-value" id="resumoMotoristaSalario">R$ 0,00</div>
-          <p class="summary-subtext" id="resumoMotoristaSalarioHint">Valor fixo cadastrado para o motorista.</p>
         </div>
         <div class="summary-box">
           <span class="summary-subtext">Total previsto para pagamento</span>
@@ -1243,10 +1242,8 @@
   const mensagemResumoMotorista = document.getElementById("mensagemResumoMotorista");
   const resumoMotoristaGrid = document.getElementById("resumoMotoristaGrid");
   const resumoMotoristaNome = document.getElementById("resumoMotoristaNome");
-  const resumoMotoristaFrete = document.getElementById("resumoMotoristaFrete");
   const resumoMotoristaComissao = document.getElementById("resumoMotoristaComissao");
   const resumoMotoristaSalario = document.getElementById("resumoMotoristaSalario");
-  const resumoMotoristaSalarioHint = document.getElementById("resumoMotoristaSalarioHint");
   const resumoMotoristaTotalPrevisto = document.getElementById("resumoMotoristaTotalPrevisto");
   const loginFeedback = document.getElementById("loginFeedback");
   const loginEmailInput = document.getElementById("loginEmail");
@@ -1690,7 +1687,13 @@
     };
 
     try {
-      await db.collection(COLECAO_FRETES).add(frete);
+      const docRef = await db.collection(COLECAO_FRETES).add(frete);
+      fretes = [...fretes, { id: docRef.id, ...frete }];
+      atualizarTabelaMotorista();
+      atualizarVisaoChefe();
+      atualizarGraficoDesempenho();
+      atualizarOpcoesFiltrosChefe();
+      atualizarDatalistMotoristas();
       alert("Frete salvo com sucesso.");
       notaFreteInput.value = "";
       cteFreteInput.value = "";
@@ -1824,13 +1827,9 @@
 
     resumoMotoristaGrid.classList.remove("hidden");
     resumoMotoristaNome.textContent = perfilAtual.nome || perfilAtual.email || "-";
-    resumoMotoristaFrete.textContent = formatarMoeda(totalFrete);
     resumoMotoristaComissao.textContent = formatarMoeda(comissao);
     resumoMotoristaSalario.textContent = formatarMoeda(salario);
     resumoMotoristaTotalPrevisto.textContent = formatarMoeda(totalPrevisto);
-    resumoMotoristaSalarioHint.textContent = salario > 0
-      ? "Valor fixo do motorista."
-      : "Sem salário definido ainda; cadastre um valor para este motorista.";
 
     mensagemResumoMotorista.textContent = fretesDoMotorista.length
       ? "Resumo calculado a partir dos fretes lançados."
