@@ -378,6 +378,23 @@
       color: #16A34A;
     }
 
+    .motorista-filter-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      margin-bottom: 12px;
+    }
+
+    .motorista-filter-row input[type="month"] {
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 14px;
+      background: #fff;
+      color: #0f172a;
+    }
+
     .btn:disabled {
       opacity: 0.6;
       cursor: not-allowed;
@@ -902,6 +919,13 @@
     </div>
 
     <div class="card" id="cardResumoMotorista">
+      <div class="motorista-filter-row">
+        <div>
+          <label for="filtroMesMotorista">Mês de referência</label>
+          <input type="month" id="filtroMesMotorista" />
+        </div>
+      </div>
+
       <div class="card-header-between">
         <div>
           <h3 class="section-title">Resumo financeiro do motorista</h3>
@@ -925,9 +949,9 @@
           <p class="summary-subtext">Calculada sobre o frete bruto</p>
         </div>
         <div class="summary-box">
-          <span class="summary-subtext">Salário definido pelo admin</span>
+          <span class="summary-subtext">Salário</span>
           <div class="summary-value" id="resumoMotoristaSalario">R$ 0,00</div>
-          <p class="summary-subtext" id="resumoMotoristaSalarioHint">Atualize o salário na área do admin.</p>
+          <p class="summary-subtext" id="resumoMotoristaSalarioHint">Valor fixo cadastrado para o motorista.</p>
         </div>
         <div class="summary-box">
           <span class="summary-subtext">Total previsto para pagamento</span>
@@ -1185,6 +1209,7 @@
   const tabelaFretesChefeBody = document.querySelector("#tabelaFretesChefe tbody");
   const tabelaSalariosBody = document.querySelector("#tabelaSalariosMotoristas tbody");
   const tabelaMotoristasAdminBody = document.querySelector("#tabelaMotoristasAdmin tbody");
+  const filtroMesMotoristaInput = document.getElementById("filtroMesMotorista");
   const totalFretesMotoristaSpan = document.getElementById("totalFretesMotorista");
   const resumoTotalFreteSpan = document.getElementById("resumoTotalFrete");
   const resumoPesoTransportadoSpan = document.getElementById("resumoPesoTransportado");
@@ -1248,6 +1273,10 @@
 
   let desempenhoChart = null;
 
+  if (filtroMesMotoristaInput && !filtroMesMotoristaInput.value) {
+    filtroMesMotoristaInput.value = obterMesAtualISO();
+  }
+
   function formatarMoeda(valor) {
     const numero = Number(valor) || 0;
     return numero.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
@@ -1258,8 +1287,21 @@
     return numero.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  function obterMesAtualISO() {
+    return new Date().toISOString().slice(0, 7);
+  }
+
   function normalizarTexto(valor) {
     return (valor || "").trim().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  }
+
+  function obterMesMotoristaSelecionado() {
+    const mesSelecionado = filtroMesMotoristaInput?.value || "";
+    return mesSelecionado || obterMesAtualISO();
+  }
+
+  function filtrarFretesPorMes(lista, mesISO) {
+    return lista.filter(f => (f.data || "").startsWith(mesISO));
   }
 
   function calcularSemanaDoMes(dataISO) {
@@ -1303,6 +1345,7 @@
     motoristas = [];
     if (motoristaNomeInput) motoristaNomeInput.value = "";
     if (caminhaoIdInput) caminhaoIdInput.value = "";
+    if (filtroMesMotoristaInput) filtroMesMotoristaInput.value = obterMesAtualISO();
     atualizarTabelaMotorista();
     atualizarTabelaSalarios();
     atualizarTabelaMotoristasAdmin();
@@ -1570,6 +1613,10 @@
     await auth.signOut();
   });
 
+  filtroMesMotoristaInput?.addEventListener("change", () => {
+    atualizarTabelaMotorista();
+  });
+
   async function salvarSalario(nome, salario) {
     const motorista = motoristas.find(m => normalizarTexto(m.nome) === normalizarTexto(nome));
     if (!motorista) return;
@@ -1658,12 +1705,20 @@
 
   function atualizarTabelaMotorista() {
     tabelaFretesMotoristaBody.innerHTML = "";
-    if (!usuarioAtual) return;
-
     let totalFretes = 0;
 
-    fretes
-      .filter(f => ehAdmin() || f.userId === usuarioAtual.uid)
+    if (!usuarioAtual) {
+      totalFretesMotoristaSpan.textContent = formatarMoeda(totalFretes);
+      return;
+    }
+
+    const mesSelecionado = obterMesMotoristaSelecionado();
+    const fretesDoMotorista = filtrarFretesPorMes(
+      fretes.filter(f => ehAdmin() || f.userId === usuarioAtual.uid),
+      mesSelecionado
+    );
+
+    fretesDoMotorista
       .sort((a, b) => (a.data || "").localeCompare(b.data || ""))
       .forEach(f => {
         const tr = document.createElement("tr");
@@ -1735,7 +1790,7 @@
       });
 
     totalFretesMotoristaSpan.textContent = formatarMoeda(totalFretes);
-    atualizarResumoMotorista();
+    atualizarResumoMotorista(fretesDoMotorista, mesSelecionado);
   }
 
   function obterSalarioPorUserId(userId) {
@@ -1748,7 +1803,7 @@
     return alvo ? Number(alvo.salario) || 0 : 0;
   }
 
-  function atualizarResumoMotorista() {
+  function atualizarResumoMotorista(fretesDoMotoristaLista = null, mesSelecionado = obterMesMotoristaSelecionado()) {
     if (!mensagemResumoMotorista || !resumoMotoristaGrid) return;
 
     if (!usuarioAtual || !perfilAtual) {
@@ -1757,7 +1812,11 @@
       return;
     }
 
-    const fretesDoMotorista = fretes.filter(f => f.userId === usuarioAtual.uid);
+    const listaBase = fretesDoMotoristaLista ?? filtrarFretesPorMes(
+      fretes.filter(f => f.userId === usuarioAtual.uid),
+      mesSelecionado
+    );
+    const fretesDoMotorista = listaBase;
     const totalFrete = fretesDoMotorista.reduce((acc, f) => acc + (Number(f.freteTotal) || 0), 0);
     const comissao = totalFrete * (COMISSAO_PADRAO / 100);
     const salario = Number(perfilAtual.salario) || 0;
@@ -1770,8 +1829,8 @@
     resumoMotoristaSalario.textContent = formatarMoeda(salario);
     resumoMotoristaTotalPrevisto.textContent = formatarMoeda(totalPrevisto);
     resumoMotoristaSalarioHint.textContent = salario > 0
-      ? "Valor cadastrado pelo administrador."
-      : "Sem salário definido ainda; peça para o administrador atualizar.";
+      ? "Valor fixo do motorista."
+      : "Sem salário definido ainda; cadastre um valor para este motorista.";
 
     mensagemResumoMotorista.textContent = fretesDoMotorista.length
       ? "Resumo calculado a partir dos fretes lançados."
