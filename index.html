@@ -1303,10 +1303,14 @@
 
   function calcularSemanaDoMes(dataISO) {
     if (!dataISO) return "";
-    const data = new Date(dataISO);
-    const primeiroDiaMes = new Date(data.getFullYear(), data.getMonth(), 1).getDay();
-    const diaDoMes = data.getDate();
-    return Math.ceil((diaDoMes + primeiroDiaMes) / 7);
+    const data = new Date(`${dataISO}T00:00:00Z`);
+    const diaDaSemana = data.getUTCDay() || 7; // ISO: Monday=1 ... Sunday=7
+    const dataQuinta = new Date(data);
+    dataQuinta.setUTCDate(data.getUTCDate() + (4 - diaDaSemana)); // alinhar na quinta-feira da semana ISO
+    const inicioAno = new Date(Date.UTC(dataQuinta.getUTCFullYear(), 0, 1));
+    const diffDias = Math.floor((dataQuinta - inicioAno) / 86400000);
+    const semanaISO = Math.floor((diffDias + 7) / 7);
+    return semanaISO;
   }
 
   function preencherSelectComValores(selectEl, valoresSet) {
