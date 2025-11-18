@@ -875,8 +875,7 @@
 <header>
   <div class="header-content">
     <div class="header-title">
-      <h1>Controle de Fretes</h1>
-      <p>Registro de fretes por motorista e caminhão, com visão semanal e mensal.</p>
+      <h1>Now Transportes</h1>
     </div>
     <div class="user-badge hidden" id="userBadge">
       <div class="badge-avatar" id="badgeAvatar">
@@ -1208,7 +1207,7 @@
       <div class="card-header-between">
         <div>
           <h3 class="section-title">Motoristas cadastrados</h3>
-          <p class="info-text">Edite nome, salário e caminhão de motoristas já cadastrados.</p>
+          <p class="info-text">Motoristas que fizerem login aparecem aqui como pendentes para validação.</p>
         </div>
       </div>
 
@@ -1218,6 +1217,7 @@
             <tr>
               <th>Nome</th>
               <th>Email</th>
+              <th>Status</th>
               <th>Salário</th>
               <th>Caminhão</th>
               <th>Ações</th>
@@ -1549,6 +1549,7 @@
       nome: user.displayName || user.email || "Motorista",
       email: user.email || "",
       tipo: "motorista",
+      status: "pendente",
       salario: 0,
       caminhao: "",
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1578,7 +1579,8 @@
     unsubscribePerfil?.();
     unsubscribePerfil = db.collection(COLECAO_USUARIOS).doc(uid).onSnapshot(doc => {
       if (doc.exists) {
-        perfilAtual = { id: doc.id, ...doc.data() };
+        const dados = doc.data();
+        perfilAtual = { id: doc.id, ...dados, status: dados.status || "ativo" };
       } else if (usuarioAtual?.uid === SUPER_ADMIN_UID) {
         perfilAtual = {
           id: uid,
@@ -1617,7 +1619,10 @@
     unsubscribeMotoristas = db.collection(COLECAO_USUARIOS)
       .where("tipo", "==", "motorista")
       .onSnapshot(snapshot => {
-        motoristas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        motoristas = snapshot.docs.map(doc => {
+          const dados = doc.data();
+          return { id: doc.id, ...dados, status: dados.status || "ativo" };
+        });
         atualizarTabelaMotoristasAdmin();
         atualizarTabelaSalarios();
         atualizarOpcoesFiltrosChefe();
@@ -2537,6 +2542,13 @@
       const tdEmail = document.createElement("td");
       tdEmail.textContent = item.email || "-";
 
+      const tdStatus = document.createElement("td");
+      const statusPill = document.createElement("span");
+      const statusAtual = item.status || "ativo";
+      statusPill.className = `status-pill ${statusAtual === "ativo" ? "pill-ok" : "pill-alert"}`;
+      statusPill.textContent = statusAtual === "ativo" ? "Ativo" : "Pendente";
+      tdStatus.appendChild(statusPill);
+
       const tdSalario = document.createElement("td");
       const salarioInput = document.createElement("input");
       salarioInput.type = "number";
@@ -2571,8 +2583,31 @@
       });
       tdAcoes.appendChild(salvarBtn);
 
+      if (statusAtual !== "ativo") {
+        const validarBtn = document.createElement("button");
+        validarBtn.className = "btn btn-secondary";
+        validarBtn.textContent = "Validar";
+        validarBtn.style.fontSize = "11px";
+        validarBtn.addEventListener("click", async () => {
+          await db.collection(COLECAO_USUARIOS).doc(item.id).set({ status: "ativo" }, { merge: true });
+        });
+        tdAcoes.appendChild(validarBtn);
+      }
+
+      const removerBtn = document.createElement("button");
+      removerBtn.className = "btn btn-danger";
+      removerBtn.textContent = "Remover";
+      removerBtn.style.fontSize = "11px";
+      removerBtn.addEventListener("click", async () => {
+        const confirmado = await mostrarDialogoConfirmacao("Remover motorista", "Deseja remover este motorista da lista?");
+        if (!confirmado) return;
+        await db.collection(COLECAO_USUARIOS).doc(item.id).delete();
+      });
+      tdAcoes.appendChild(removerBtn);
+
       tr.appendChild(tdNome);
       tr.appendChild(tdEmail);
+      tr.appendChild(tdStatus);
       tr.appendChild(tdSalario);
       tr.appendChild(tdCaminhao);
       tr.appendChild(tdAcoes);
