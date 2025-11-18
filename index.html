@@ -73,7 +73,7 @@
     }
 
     .login-card {
-      width: min(480px, 100%);
+      width: min(420px, 100%);
       background: rgba(255, 255, 255, 0.92);
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(15, 23, 42, 0.16);
@@ -181,6 +181,51 @@
       flex: 1;
       height: 1px;
       background: #e2e8f0;
+    }
+
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+
+    .confirm-box {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      width: min(360px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .confirm-box h4 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 17px;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    .btn-muted {
+      background: #e2e8f0;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
     }
 
     .google-btn {
@@ -887,6 +932,7 @@
 
       <div class="actions">
         <button class="btn btn-primary" id="btnSalvarFrete">Salvar frete</button>
+        <button class="btn btn-secondary outline hidden" id="btnCancelarEdicaoFrete">Cancelar edição</button>
       </div>
     </div>
 
@@ -1060,6 +1106,7 @@
               <th class="text-right">Peso líq. (kg)</th>
               <th class="text-right">R$/ton</th>
               <th class="text-right">Frete (R$)</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -1235,6 +1282,7 @@
   const valorToneladaInput = document.getElementById("valorTonelada");
   const freteTotalInput = document.getElementById("freteTotal");
   const btnSalvarFrete = document.getElementById("btnSalvarFrete");
+  const btnCancelarEdicaoFrete = document.getElementById("btnCancelarEdicaoFrete");
   const btnSalvarSalario = document.getElementById("btnSalvarSalario");
   const salarioMotoristaNomeInput = document.getElementById("salarioMotoristaNome");
   const salarioMotoristaValorInput = document.getElementById("salarioMotoristaValor");
@@ -1269,6 +1317,7 @@
   const btnLogout = document.getElementById("btnLogout");
 
   let desempenhoChart = null;
+  let freteEmEdicaoId = null;
 
   if (filtroMesMotoristaInput && !filtroMesMotoristaInput.value) {
     filtroMesMotoristaInput.value = obterMesAtualISO();
@@ -1282,6 +1331,13 @@
   function formatarNumero(valor) {
     const numero = Number(valor) || 0;
     return numero.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function formatarDataPtBr(dataISO) {
+    if (!dataISO || typeof dataISO !== "string") return "-";
+    const [ano, mes, dia] = dataISO.split("-");
+    if (!ano || !mes || !dia) return dataISO;
+    return `${dia}/${mes}/${ano}`;
   }
 
   function obterMesAtualISO() {
@@ -1303,14 +1359,20 @@
 
   function calcularSemanaDoMes(dataISO) {
     if (!dataISO) return "";
-    const data = new Date(`${dataISO}T00:00:00Z`);
-    const diaDaSemana = data.getUTCDay() || 7; // ISO: Monday=1 ... Sunday=7
-    const dataQuinta = new Date(data);
-    dataQuinta.setUTCDate(data.getUTCDate() + (4 - diaDaSemana)); // alinhar na quinta-feira da semana ISO
-    const inicioAno = new Date(Date.UTC(dataQuinta.getUTCFullYear(), 0, 1));
-    const diffDias = Math.floor((dataQuinta - inicioAno) / 86400000);
-    const semanaISO = Math.floor((diffDias + 7) / 7);
+    const [ano, mes, dia] = dataISO.split("-").map(Number);
+    if (!ano || !mes || !dia) return "";
+    const data = new Date(Date.UTC(ano, mes - 1, dia));
+    const diaDaSemana = data.getUTCDay() || 7; // Monday=1 ... Sunday=7
+    data.setUTCDate(data.getUTCDate() + (4 - diaDaSemana)); // move to Thursday
+    const inicioAno = new Date(Date.UTC(data.getUTCFullYear(), 0, 1));
+    const semanaISO = Math.ceil(((data - inicioAno) / 86400000 + 1) / 7);
     return semanaISO;
+  }
+
+  function obterSemanaFrete(frete) {
+    if (!frete) return "";
+    if (frete.data) return calcularSemanaDoMes(frete.data);
+    return frete.semana || "";
   }
 
   function preencherSelectComValores(selectEl, valoresSet) {
@@ -1347,6 +1409,7 @@
     if (motoristaNomeInput) motoristaNomeInput.value = "";
     if (caminhaoIdInput) caminhaoIdInput.value = "";
     if (filtroMesMotoristaInput) filtroMesMotoristaInput.value = obterMesAtualISO();
+    resetarFormularioFrete();
     atualizarTabelaMotorista();
     atualizarTabelaSalarios();
     atualizarTabelaMotoristasAdmin();
@@ -1550,7 +1613,11 @@
 
     unsubscribeFretes = query.onSnapshot(snapshot => {
       fretes = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .map(doc => {
+          const data = doc.data();
+          const semanaCorrigida = obterSemanaFrete(data);
+          return { id: doc.id, ...data, semana: semanaCorrigida };
+        })
         .sort((a, b) => (a.data || "").localeCompare(b.data || ""));
       atualizarTabelaMotorista();
       atualizarVisaoChefe();
@@ -1616,6 +1683,48 @@
     await auth.signOut();
   });
 
+  function mostrarDialogoConfirmacao(titulo, mensagem) {
+    return new Promise(resolve => {
+      const overlay = document.createElement("div");
+      overlay.className = "confirm-overlay";
+
+      const box = document.createElement("div");
+      box.className = "confirm-box";
+
+      const h4 = document.createElement("h4");
+      h4.textContent = titulo || "Confirmar ação";
+      const p = document.createElement("p");
+      p.textContent = mensagem || "Deseja continuar?";
+
+      const actions = document.createElement("div");
+      actions.className = "confirm-actions";
+
+      const btnCancelar = document.createElement("button");
+      btnCancelar.className = "btn btn-muted";
+      btnCancelar.textContent = "Cancelar";
+      btnCancelar.addEventListener("click", () => {
+        document.body.removeChild(overlay);
+        resolve(false);
+      });
+
+      const btnConfirmar = document.createElement("button");
+      btnConfirmar.className = "btn btn-danger";
+      btnConfirmar.textContent = "Confirmar";
+      btnConfirmar.addEventListener("click", () => {
+        document.body.removeChild(overlay);
+        resolve(true);
+      });
+
+      actions.appendChild(btnCancelar);
+      actions.appendChild(btnConfirmar);
+      box.appendChild(h4);
+      box.appendChild(p);
+      box.appendChild(actions);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+    });
+  }
+
   filtroMesMotoristaInput?.addEventListener("change", () => {
     atualizarTabelaMotorista();
   });
@@ -1656,6 +1765,9 @@
       return;
     }
 
+    const freteExistente = freteEmEdicaoId ? fretes.find(f => f.id === freteEmEdicaoId) : null;
+    const donoOriginal = freteExistente?.userId || usuarioAtual.uid;
+    const nomeMotorista = freteExistente?.motoristaNome || perfilAtual?.nome || usuarioAtual.email;
     const caminhaoId = caminhaoIdInput.value.trim() || perfilAtual.caminhao || "";
     const dataFrete = dataFreteInput.value;
     const nota = notaFreteInput.value.trim();
@@ -1678,8 +1790,8 @@
 
     const semana = calcularSemanaDoMes(dataFrete);
     const frete = {
-      userId: usuarioAtual.uid,
-      motoristaNome: perfilAtual?.nome || usuarioAtual.email,
+      userId: donoOriginal,
+      motoristaNome: nomeMotorista,
       caminhaoId,
       data: dataFrete,
       semana,
@@ -1693,24 +1805,41 @@
     };
 
     try {
-      const docRef = await db.collection(COLECAO_FRETES).add(frete);
-      fretes = [...fretes, { id: docRef.id, ...frete }];
+      if (freteEmEdicaoId) {
+        await db.collection(COLECAO_FRETES).doc(freteEmEdicaoId).set(frete, { merge: true });
+      } else {
+        const docRef = await db.collection(COLECAO_FRETES).add(frete);
+        fretes = [...fretes, { id: docRef.id, ...frete }];
+      }
       atualizarTabelaMotorista();
       atualizarVisaoChefe();
       atualizarGraficoDesempenho();
       atualizarOpcoesFiltrosChefe();
       atualizarDatalistMotoristas();
-      alert("Frete salvo com sucesso.");
-      notaFreteInput.value = "";
-      cteFreteInput.value = "";
-      pesoBrutoInput.value = "";
-      pesoLiquidoInput.value = "";
-      valorToneladaInput.value = "";
-      freteTotalInput.value = "";
+      resetarFormularioFrete();
     } catch (error) {
       alert("Erro ao salvar frete: " + (error.message || ""));
     }
   });
+
+  btnCancelarEdicaoFrete?.addEventListener("click", () => {
+    resetarFormularioFrete();
+  });
+
+  function resetarFormularioFrete() {
+    freteEmEdicaoId = null;
+    btnSalvarFrete.textContent = "Salvar frete";
+    btnCancelarEdicaoFrete?.classList.add("hidden");
+    notaFreteInput.value = "";
+    cteFreteInput.value = "";
+    pesoBrutoInput.value = "";
+    pesoLiquidoInput.value = "";
+    valorToneladaInput.value = "";
+    freteTotalInput.value = "";
+    dataFreteInput.value = "";
+    motoristaNomeInput.value = perfilAtual?.nome || usuarioAtual?.displayName || usuarioAtual?.email || "";
+    caminhaoIdInput.value = perfilAtual?.caminhao || "";
+  }
 
   function atualizarTabelaMotorista() {
     tabelaFretesMotoristaBody.innerHTML = "";
@@ -1733,11 +1862,12 @@
         const tr = document.createElement("tr");
 
         const tdData = document.createElement("td");
-        tdData.textContent = f.data || "-";
+        tdData.textContent = formatarDataPtBr(f.data);
 
         const tdSemana = document.createElement("td");
-        if (f.semana) {
-          tdSemana.innerHTML = `<span class="badge badge-week">Sem ${f.semana}</span>`;
+        const semana = obterSemanaFrete(f);
+        if (semana) {
+          tdSemana.innerHTML = `<span class="badge badge-week">Sem ${semana}</span>`;
         } else {
           tdSemana.textContent = "-";
         }
@@ -1767,16 +1897,24 @@
         tdFrete.textContent = f.freteTotal != null ? formatarMoeda(f.freteTotal) : "-";
 
         const tdAcoes = document.createElement("td");
-        if (f.userId === usuarioAtual.uid) {
+        if (f.userId === usuarioAtual.uid || ehAdmin()) {
+          const btnEditar = document.createElement("button");
+          btnEditar.textContent = "Editar";
+          btnEditar.className = "btn btn-secondary";
+          btnEditar.style.fontSize = "11px";
+          btnEditar.addEventListener("click", () => preencherFormularioFreteParaEdicao(f));
+
           const btnExcluir = document.createElement("button");
           btnExcluir.textContent = "Excluir";
           btnExcluir.className = "btn btn-danger";
           btnExcluir.style.fontSize = "11px";
           btnExcluir.addEventListener("click", async () => {
-            if (confirm("Deseja realmente excluir este frete?")) {
-              await db.collection(COLECAO_FRETES).doc(f.id).delete();
-            }
+            const confirmado = await mostrarDialogoConfirmacao("Excluir frete", "Deseja realmente excluir este frete?");
+            if (!confirmado) return;
+            await db.collection(COLECAO_FRETES).doc(f.id).delete();
           });
+
+          tdAcoes.appendChild(btnEditar);
           tdAcoes.appendChild(btnExcluir);
         }
 
@@ -1898,7 +2036,7 @@
       registro.freteTotal += frete;
       registro.pesoTotal += peso;
       registro.viagens += 1;
-      const semana = f.semana || calcularSemanaDoMes(f.data);
+      const semana = obterSemanaFrete(f);
       if (semana) {
         if (!registro.semanas[semana]) {
           registro.semanas[semana] = { frete: 0, peso: 0, viagens: 0 };
@@ -1988,7 +2126,7 @@
     resumoSemanasGeralWrapper.innerHTML = "";
     const mapa = {};
     listaFretes.forEach(f => {
-      const semana = f.semana || calcularSemanaDoMes(f.data);
+      const semana = obterSemanaFrete(f);
       if (!semana) return;
       if (!mapa[semana]) {
         mapa[semana] = { frete: 0, peso: 0, viagens: 0 };
@@ -2064,10 +2202,10 @@
       .forEach(f => {
         const tr = document.createElement("tr");
         const tdData = document.createElement("td");
-        tdData.textContent = f.data || "-";
+        tdData.textContent = formatarDataPtBr(f.data);
 
         const tdSemana = document.createElement("td");
-        const semana = f.semana || calcularSemanaDoMes(f.data);
+        const semana = obterSemanaFrete(f);
         tdSemana.innerHTML = semana ? `<span class="badge badge-week">Sem ${semana}</span>` : "-";
 
         const tdMotorista = document.createElement("td");
@@ -2094,6 +2232,28 @@
         tdFrete.className = "text-right";
         tdFrete.textContent = f.freteTotal != null ? formatarMoeda(f.freteTotal) : "-";
 
+        const tdAcoes = document.createElement("td");
+        if (ehAdmin()) {
+          const btnEditar = document.createElement("button");
+          btnEditar.className = "btn btn-secondary";
+          btnEditar.style.fontSize = "11px";
+          btnEditar.textContent = "Editar";
+          btnEditar.addEventListener("click", () => preencherFormularioFreteParaEdicao(f));
+
+          const btnExcluir = document.createElement("button");
+          btnExcluir.className = "btn btn-danger";
+          btnExcluir.style.fontSize = "11px";
+          btnExcluir.textContent = "Excluir";
+          btnExcluir.addEventListener("click", async () => {
+            const confirmado = await mostrarDialogoConfirmacao("Excluir frete", "Deseja realmente excluir este frete?");
+            if (!confirmado) return;
+            await db.collection(COLECAO_FRETES).doc(f.id).delete();
+          });
+
+          tdAcoes.appendChild(btnEditar);
+          tdAcoes.appendChild(btnExcluir);
+        }
+
         tr.appendChild(tdData);
         tr.appendChild(tdSemana);
         tr.appendChild(tdMotorista);
@@ -2103,9 +2263,26 @@
         tr.appendChild(tdPeso);
         tr.appendChild(tdValorTon);
         tr.appendChild(tdFrete);
+        tr.appendChild(tdAcoes);
 
         tabelaFretesChefeBody.appendChild(tr);
       });
+  }
+
+  function preencherFormularioFreteParaEdicao(frete) {
+    freteEmEdicaoId = frete.id;
+    motoristaNomeInput.value = frete.motoristaNome || perfilAtual?.nome || "";
+    caminhaoIdInput.value = frete.caminhaoId || perfilAtual?.caminhao || "";
+    dataFreteInput.value = frete.data || "";
+    notaFreteInput.value = frete.nota || "";
+    cteFreteInput.value = frete.cte || "";
+    pesoBrutoInput.value = frete.pesoBruto ?? "";
+    pesoLiquidoInput.value = frete.pesoLiquido ?? "";
+    valorToneladaInput.value = frete.valorTonelada ?? "";
+    freteTotalInput.value = frete.freteTotal ?? "";
+    btnSalvarFrete.textContent = "Atualizar frete";
+    btnCancelarEdicaoFrete?.classList.remove("hidden");
+    dataFreteInput.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   tabButtons.forEach(btn => {
@@ -2165,7 +2342,7 @@
     const mapa = {};
 
     fretesMes.forEach(f => {
-      const semana = f.semana || calcularSemanaDoMes(f.data);
+      const semana = obterSemanaFrete(f);
       const total = typeof f.freteTotal === "number" ? f.freteTotal : parseFloat(f.freteTotal);
       if (!semana || isNaN(total)) return;
       mapa[semana] = (mapa[semana] || 0) + total;

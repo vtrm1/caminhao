@@ -32,7 +32,8 @@ service cloud.firestore {
     match /fretes/{freteId} {
       allow create: if isAdminProfile() || (signedIn() && request.resource.data.userId == request.auth.uid);
       allow read: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow update, delete: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid);
+      allow update: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid);
+      allow delete: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid);
     }
   }
 }
