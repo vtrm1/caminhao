@@ -1362,11 +1362,17 @@
     const [ano, mes, dia] = dataISO.split("-").map(Number);
     if (!ano || !mes || !dia) return "";
     const data = new Date(Date.UTC(ano, mes - 1, dia));
-    const diaDaSemana = data.getUTCDay() || 7; // Monday=1 ... Sunday=7
-    data.setUTCDate(data.getUTCDate() + (4 - diaDaSemana)); // move to Thursday
-    const inicioAno = new Date(Date.UTC(data.getUTCFullYear(), 0, 1));
-    const semanaISO = Math.ceil(((data - inicioAno) / 86400000 + 1) / 7);
-    return semanaISO;
+    const inicioMes = new Date(Date.UTC(ano, mes - 1, 1));
+    const deslocamentoPrimeiraSegunda = (inicioMes.getUTCDay() + 6) % 7; // 0 para segunda, 6 para domingo
+    const primeiraSegunda = new Date(Date.UTC(ano, mes - 1, 1 - deslocamentoPrimeiraSegunda));
+
+    const diaDaSemanaAtual = (data.getUTCDay() + 6) % 7; // 0 = segunda
+    const segundaDaSemanaAtual = new Date(Date.UTC(ano, mes - 1, dia - diaDaSemanaAtual));
+
+    const diferencaDias = Math.round((segundaDaSemanaAtual - primeiraSegunda) / 86400000);
+    const semana = Math.floor(diferencaDias / 7) + 1;
+
+    return Math.min(semana, 5);
   }
 
   function obterSemanaFrete(frete) {
