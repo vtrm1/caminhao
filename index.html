@@ -1183,6 +1183,7 @@
           <input type="number" id="percentualComissaoChefe" step="0.1" min="0" max="100" value="10" />
         </div>
         <div class="filter-actions">
+          <button class="btn btn-secondary outline" id="btnExportarExcel">Exportar Excel</button>
           <button class="btn btn-primary" id="btnAplicarFiltroChefe">Aplicar filtro</button>
         </div>
       </div>
@@ -1400,6 +1401,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyBoMun-Hn757Oq08yN9dQ-k9Z5ANkuEIfk",
@@ -1482,6 +1484,7 @@
   const btnSalvarFrete = document.getElementById("btnSalvarFrete");
   const btnCancelarEdicaoFrete = document.getElementById("btnCancelarEdicaoFrete");
   const btnSalvarSalario = document.getElementById("btnSalvarSalario");
+  const btnExportarExcel = document.getElementById("btnExportarExcel");
   const salarioMotoristaNomeInput = document.getElementById("salarioMotoristaNome");
   const salarioMotoristaValorInput = document.getElementById("salarioMotoristaValor");
   const motoristasDatalist = document.getElementById("motoristasDatalist");
@@ -2692,6 +2695,10 @@
     atualizarGraficoDesempenho();
   });
 
+  btnExportarExcel?.addEventListener("click", () => {
+    exportarExcelAdmin();
+  });
+
   [filtroMotoristaChefeSelect, filtroCaminhaoChefeSelect].forEach(selectEl => {
     selectEl?.addEventListener("change", () => {
       atualizarVisaoChefe();
@@ -2711,6 +2718,9 @@
     if (!mesSelecionado) return;
     const comissaoPercent = obterPercentualComissao();
     const fretesFiltrados = obterFretesFiltrados();
+    if (btnExportarExcel) {
+      btnExportarExcel.disabled = fretesFiltrados.length === 0;
+    }
     preencherTabelaFretesChefe(fretesFiltrados);
     renderizarCardsValoresPagar(fretesFiltrados, comissaoPercent);
     const { totalFolha, ranking } = renderizarCardsMotoristas(fretesFiltrados, comissaoPercent);
@@ -2997,6 +3007,107 @@
         option.value = nome;
         motoristasDatalist.appendChild(option);
       });
+  }
+
+  function gerarNomeArquivoExcel(mesISO) {
+    if (!mesISO) return "fretes.xlsx";
+    const [ano, mes] = mesISO.split("-");
+    if (!ano || !mes) return "fretes.xlsx";
+    return `fretes-${mes}-${ano}.xlsx`;
+  }
+
+  function exportarExcelAdmin() {
+    if (!ehAdmin()) return;
+    if (typeof XLSX === "undefined") {
+      console.error("Biblioteca XLSX não carregada.");
+      return;
+    }
+
+    const fretesFiltrados = obterFretesFiltrados();
+    if (!fretesFiltrados.length) {
+      console.warn("Não há fretes no período filtrado para exportar.");
+      return;
+    }
+
+    const comissaoPercent = obterPercentualComissao();
+    const mesSelecionado = obterMesReferenciaChefe();
+    const periodoFormatado = formatarMesCurto(mesSelecionado);
+    const mapa = agruparFretesPorMotorista(fretesFiltrados);
+
+    const resumoHeader = [
+      "Motorista",
+      "Período",
+      "Salário (R$)",
+      "Frete bruto (R$)",
+      "Comissão (R$)",
+      "Total a pagar (R$)",
+      "Total de viagens",
+      "Peso total (kg)",
+      "Média frete/viagem (R$)"
+    ];
+
+    const resumoLinhas = [resumoHeader];
+    Object.keys(mapa).forEach(id => {
+      const info = mapa[id];
+      const salarioBase = obterSalarioPorUserId(id) || obterSalarioMotoristaPorNome(info.nome) || 0;
+      const salario = Number(salarioBase) || 0;
+      const comissao = info.freteTotal * (comissaoPercent / 100);
+      const totalPrevisto = salario + comissao;
+      const mediaFrete = info.viagens ? info.freteTotal / info.viagens : 0;
+
+      resumoLinhas.push([
+        info.nome,
+        periodoFormatado,
+        Number(salario.toFixed(2)),
+        Number(info.freteTotal.toFixed(2)),
+        Number(comissao.toFixed(2)),
+        Number(totalPrevisto.toFixed(2)),
+        info.viagens,
+        Number(info.pesoTotal.toFixed(2)),
+        Number(mediaFrete.toFixed(2))
+      ]);
+    });
+
+    const detalhesHeader = [
+      "Data",
+      "Semana",
+      "Motorista",
+      "Caminhão",
+      "Nota",
+      "CTE",
+      "Peso líquido (kg)",
+      "Valor por tonelada (R$)",
+      "Frete (R$)"
+    ];
+
+    const detalhesLinhas = [detalhesHeader];
+    const fretesOrdenados = [...fretesFiltrados].sort((a, b) => (a.data || "").localeCompare(b.data || ""));
+    fretesOrdenados.forEach(f => {
+      const pesoLiquido = parseFloat(String(f.pesoLiquido ?? "0").replace(",", ".")) || 0;
+      const valorTon = parseFloat(String(f.valorTonelada ?? "0").replace(",", ".")) || 0;
+      const freteTotal = parseFloat(String(f.freteTotal ?? "0").replace(",", ".")) || 0;
+
+      detalhesLinhas.push([
+        formatarDataPtBr(f.data),
+        obterSemanaFrete(f),
+        f.motoristaNome || "-",
+        f.caminhaoId || "-",
+        f.nota || "-",
+        f.cte || "-",
+        Number(pesoLiquido.toFixed(2)),
+        Number(valorTon.toFixed(2)),
+        Number(freteTotal.toFixed(2))
+      ]);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const resumoSheet = XLSX.utils.aoa_to_sheet(resumoLinhas);
+    const detalhesSheet = XLSX.utils.aoa_to_sheet(detalhesLinhas);
+    XLSX.utils.book_append_sheet(wb, resumoSheet, "Resumo");
+    XLSX.utils.book_append_sheet(wb, detalhesSheet, "Detalhes");
+
+    const nomeArquivo = gerarNomeArquivoExcel(mesSelecionado);
+    XLSX.writeFile(wb, nomeArquivo);
   }
 
   function atualizarGraficoEVisoes() {
