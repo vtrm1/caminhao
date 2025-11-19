@@ -1366,6 +1366,7 @@
           <div class="motorista-form-grid">
             <input type="text" id="novoMotoristaNome" placeholder="Nome completo" />
             <input type="email" id="novoMotoristaEmail" placeholder="Email" />
+            <input type="password" id="novoMotoristaSenha" placeholder="Senha inicial (mínimo 6 caracteres)" autocomplete="new-password" />
             <input type="number" id="novoMotoristaSalario" placeholder="Salário" min="0" step="0.01" />
             <input type="text" id="novoMotoristaCaminhao" placeholder="Caminhão" />
             <button class="btn btn-primary" id="btnAdicionarMotorista">Adicionar motorista</button>
@@ -1413,6 +1414,14 @@
   const firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
   const auth = firebaseApp.auth();
   const db = firebase.firestore();
+  let adminCredentialAuth = null;
+
+  try {
+    const secondaryApp = firebase.apps.find(app => app.name === "adminSecondary") || firebase.initializeApp(firebaseConfig, "adminSecondary");
+    adminCredentialAuth = secondaryApp.auth();
+  } catch (error) {
+    console.warn("Aplicativo secundário para criação de contas não pôde ser iniciado.", error);
+  }
 
   firebase.firestore().enablePersistence({ synchronizeTabs: true }).catch(error => {
     console.warn("Persistência offline não pôde ser ativada.", error);
@@ -1439,6 +1448,7 @@
   const tabelaMotoristasAdminBody = document.querySelector("#tabelaMotoristasAdmin tbody");
   const novoMotoristaNomeInput = document.getElementById("novoMotoristaNome");
   const novoMotoristaEmailInput = document.getElementById("novoMotoristaEmail");
+  const novoMotoristaSenhaInput = document.getElementById("novoMotoristaSenha");
   const novoMotoristaSalarioInput = document.getElementById("novoMotoristaSalario");
   const novoMotoristaCaminhaoInput = document.getElementById("novoMotoristaCaminhao");
   const btnAdicionarMotorista = document.getElementById("btnAdicionarMotorista");
@@ -1738,6 +1748,32 @@
     return { id: user.uid, ...perfilPadrao };
   }
 
+  function mensagemErroCriacaoCredenciais(error) {
+    if (!error) return "Não foi possível criar as credenciais do motorista.";
+    const codigo = error.code;
+    const mapa = {
+      "auth/email-already-in-use": "O email informado já está em uso em outra conta.",
+      "auth/invalid-email": "Email inválido. Verifique e tente novamente.",
+      "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
+      "app_secundario_indisponivel": "Criação de contas temporariamente indisponível.",
+    };
+    return mapa[codigo] || error.message || "Não foi possível criar as credenciais do motorista.";
+  }
+
+  async function criarCredenciaisMotorista(email, senha) {
+    if (!senha) return "";
+    if (!adminCredentialAuth) {
+      const erro = new Error("Criação de contas indisponível");
+      erro.code = "app_secundario_indisponivel";
+      throw erro;
+    }
+
+    const cred = await adminCredentialAuth.createUserWithEmailAndPassword(email, senha);
+    const novoUid = cred.user?.uid || "";
+    await adminCredentialAuth.signOut();
+    return novoUid;
+  }
+
   async function garantirPerfilUsuario(user) {
     if (!user) return null;
 
@@ -1990,11 +2026,22 @@
   btnAdicionarMotorista?.addEventListener("click", async () => {
     const nome = novoMotoristaNomeInput.value.trim();
     const email = novoMotoristaEmailInput.value.trim().toLowerCase();
+    const senha = (novoMotoristaSenhaInput.value || "").trim();
     const salario = parseFloat(novoMotoristaSalarioInput.value.replace(",", "."));
     const caminhao = novoMotoristaCaminhaoInput.value.trim();
 
     if (!nome || !email) {
       alert("Informe nome e email para cadastrar o motorista.");
+      return;
+    }
+
+    let novoUid = "";
+    try {
+      if (senha) {
+        novoUid = await criarCredenciaisMotorista(email, senha);
+      }
+    } catch (error) {
+      alert(mensagemErroCriacaoCredenciais(error));
       return;
     }
 
@@ -2007,18 +2054,23 @@
 
     const existentes = await db.collection(COLECAO_MOTORISTAS).where("email", "==", email).limit(1).get();
     if (!existentes.empty) {
-      await existentes.docs[0].ref.set(payloadBase, { merge: true });
+      const atualizacoes = { ...payloadBase };
+      if (novoUid) {
+        atualizacoes.uid = novoUid;
+      }
+      await existentes.docs[0].ref.set(atualizacoes, { merge: true });
     } else {
       await db.collection(COLECAO_MOTORISTAS).add({
         ...payloadBase,
+        uid: novoUid || "",
         status: "pendente",
-        uid: "",
         criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
       });
     }
 
     novoMotoristaNomeInput.value = "";
     novoMotoristaEmailInput.value = "";
+    novoMotoristaSenhaInput.value = "";
     novoMotoristaSalarioInput.value = "";
     novoMotoristaCaminhaoInput.value = "";
   });
