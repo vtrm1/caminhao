@@ -1433,7 +1433,12 @@
   const COLECAO_USUARIOS = "users";
   const COLECAO_MOTORISTAS = "motoristas";
   const COMISSAO_PADRAO = 10;
-  const SUPER_ADMIN_UID = "INGKKP7ibHMZ0NX5YE8VTGgui592";
+  const SUPER_ADMIN_UIDS = new Set([
+    "INGKKP7ibHMZ0NX5YE8VTGgui592",
+    "vbHbOOIru8MwWR9cWLow9mDNkzo2"
+  ]);
+
+  const isSuperAdminUid = (uid) => uid && SUPER_ADMIN_UIDS.has(uid);
 
   let usuarioAtual = null;
   let perfilAtual = null;
@@ -1687,7 +1692,7 @@
   }
 
   function ehAdmin() {
-    return perfilAtual?.tipo === "admin" || usuarioAtual?.uid === SUPER_ADMIN_UID;
+    return perfilAtual?.tipo === "admin" || isSuperAdminUid(usuarioAtual?.uid);
   }
 
   function aplicarVisibilidadePorPapel() {
@@ -1787,7 +1792,7 @@
       return { id: snapshot.id, ...snapshot.data() };
     }
 
-    if (user.uid === SUPER_ADMIN_UID) {
+    if (isSuperAdminUid(user.uid)) {
       return {
         id: user.uid,
         nome: user.displayName || user.email || "Administrador",
@@ -1815,7 +1820,7 @@
       if (doc.exists) {
         const dados = doc.data();
         perfilAtual = { id: doc.id, ...dados, status: dados.status || "ativo" };
-      } else if (usuarioAtual?.uid === SUPER_ADMIN_UID) {
+      } else if (isSuperAdminUid(usuarioAtual?.uid)) {
         perfilAtual = {
           id: uid,
           nome: usuarioAtual.displayName || usuarioAtual.email || "Administrador",
@@ -1913,7 +1918,7 @@
     mostrarFeedbackLogin("Validando sessão...");
     try {
       const perfilGerado = await garantirPerfilUsuario(user);
-      if (!perfilGerado && user.uid !== SUPER_ADMIN_UID) {
+      if (!perfilGerado && !isSuperAdminUid(user.uid)) {
         await auth.signOut();
         return;
       }

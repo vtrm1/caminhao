@@ -6,7 +6,10 @@ service cloud.firestore {
     }
 
     function isSuperAdmin() {
-      return signedIn() && request.auth.uid == "INGKKP7ibHMZ0NX5YE8VTGgui592";
+      return signedIn() && (
+        request.auth.uid == "INGKKP7ibHMZ0NX5YE8VTGgui592" ||
+        request.auth.uid == "vbHbOOIru8MwWR9cWLow9mDNkzo2"
+      );
     }
 
     function currentUserData() {
