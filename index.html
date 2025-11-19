@@ -728,6 +728,18 @@
       box-shadow: 0 10px 24px rgba(30, 58, 138, 0.12);
     }
 
+    .motorista-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: center;
+      margin: 8px 0 4px;
+    }
+
+    .motorista-form-grid .btn {
+      width: 100%;
+    }
+
     .info-text {
       font-size: 13px;
       color: var(--cor-texto-suave);
@@ -1207,8 +1219,16 @@
       <div class="card-header-between">
         <div>
           <h3 class="section-title">Motoristas cadastrados</h3>
-          <p class="info-text">Motoristas que fizerem login aparecem aqui como pendentes para validação.</p>
+          <p class="info-text">Cadastre motoristas manualmente e acompanhe os pendentes antes do primeiro login.</p>
         </div>
+      </div>
+
+      <div class="motorista-form-grid">
+        <input type="text" id="novoMotoristaNome" placeholder="Nome completo" />
+        <input type="email" id="novoMotoristaEmail" placeholder="Email" />
+        <input type="number" id="novoMotoristaSalario" placeholder="Salário" min="0" step="0.01" />
+        <input type="text" id="novoMotoristaCaminhao" placeholder="Caminhão" />
+        <button class="btn btn-primary" id="btnAdicionarMotorista">Adicionar motorista</button>
       </div>
 
       <div class="table-wrapper">
@@ -1259,6 +1279,7 @@
 
   const COLECAO_FRETES = "fretes";
   const COLECAO_USUARIOS = "users";
+  const COLECAO_MOTORISTAS = "motoristas";
   const COMISSAO_PADRAO = 10;
   const SUPER_ADMIN_UID = "INGKKP7ibHMZ0NX5YE8VTGgui592";
 
@@ -1275,6 +1296,11 @@
   const tabelaFretesChefeBody = document.querySelector("#tabelaFretesChefe tbody");
   const tabelaSalariosBody = document.querySelector("#tabelaSalariosMotoristas tbody");
   const tabelaMotoristasAdminBody = document.querySelector("#tabelaMotoristasAdmin tbody");
+  const novoMotoristaNomeInput = document.getElementById("novoMotoristaNome");
+  const novoMotoristaEmailInput = document.getElementById("novoMotoristaEmail");
+  const novoMotoristaSalarioInput = document.getElementById("novoMotoristaSalario");
+  const novoMotoristaCaminhaoInput = document.getElementById("novoMotoristaCaminhao");
+  const btnAdicionarMotorista = document.getElementById("btnAdicionarMotorista");
   const filtroMesMotoristaInput = document.getElementById("filtroMesMotorista");
   const totalFretesMotoristaSpan = document.getElementById("totalFretesMotorista");
   const resumoTotalFreteSpan = document.getElementById("resumoTotalFrete");
@@ -1452,10 +1478,21 @@
     motoristaNomeInput.readOnly = true;
     motoristaNomeInput.placeholder = nome || "Nome do motorista";
 
-    const caminhao = perfilAtual?.caminhao || "";
+    const vinculado = motoristas.find(m => m.uid === usuarioAtual?.uid);
+    const caminhao = perfilAtual?.caminhao || vinculado?.caminhao || "";
     if (caminhao) {
       caminhaoIdInput.value = caminhao;
     }
+  }
+
+  function atualizarPerfilComMotoristaVinculado() {
+    if (!usuarioAtual || !perfilAtual) return;
+    const vinculado = motoristas.find(m => m.uid === usuarioAtual.uid);
+    if (!vinculado) return;
+    perfilAtual.salario = Number(vinculado.salario) || perfilAtual.salario || 0;
+    perfilAtual.caminhao = vinculado.caminhao || perfilAtual.caminhao || "";
+    aplicarDadosPerfilNosCampos();
+    atualizarResumoMotorista();
   }
 
   function atualizarBadgeUsuario() {
@@ -1527,6 +1564,37 @@
     }
   }
 
+  async function vincularMotoristaExistente(user) {
+    if (!user?.email) return null;
+    const email = user.email.toLowerCase();
+
+    const snap = await db.collection(COLECAO_MOTORISTAS).where("email", "==", email).limit(1).get();
+    if (snap.empty) return null;
+
+    const docRef = snap.docs[0].ref;
+    const dados = snap.docs[0].data();
+    const atualizacoes = {};
+
+    if (!dados.uid) atualizacoes.uid = user.uid;
+    if ((dados.status || "pendente") !== "ativo") atualizacoes.status = "ativo";
+
+    if (Object.keys(atualizacoes).length > 0) {
+      await docRef.set(atualizacoes, { merge: true });
+    }
+
+    const perfilPadrao = {
+      nome: dados.nome || user.displayName || user.email || "Motorista",
+      email: user.email || "",
+      tipo: "motorista",
+      salario: Number(dados.salario) || 0,
+      caminhao: dados.caminhao || "",
+      status: "ativo",
+    };
+
+    await db.collection(COLECAO_USUARIOS).doc(user.uid).set(perfilPadrao, { merge: true });
+    return { id: user.uid, ...perfilPadrao };
+  }
+
   async function garantirPerfilUsuario(user) {
     if (!user) return null;
 
@@ -1545,27 +1613,11 @@
       };
     }
 
-    const perfilPadrao = {
-      nome: user.displayName || user.email || "Motorista",
-      email: user.email || "",
-      tipo: "motorista",
-      status: "pendente",
-      salario: 0,
-      caminhao: "",
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-    };
+    const vinculado = await vincularMotoristaExistente(user);
+    if (vinculado) return vinculado;
 
-    try {
-      criandoPerfil = true;
-      await docRef.set(perfilPadrao, { merge: true });
-      return { id: docRef.id, ...perfilPadrao };
-    } catch (error) {
-      console.error("Erro ao criar perfil padrão", error);
-      mostrarFeedbackLogin("Não foi possível criar seu perfil automático. Confirme o acesso com o administrador.");
-      throw error;
-    } finally {
-      criandoPerfil = false;
-    }
+    mostrarFeedbackLogin("Cadastro de motorista não encontrado. Peça ao administrador para liberar o acesso.");
+    throw new Error("motorista_nao_cadastrado");
   }
 
   async function carregarPerfil(uid) {
@@ -1616,17 +1668,18 @@
   function iniciarListenerMotoristas() {
     unsubscribeMotoristas?.();
     if (!ehAdmin()) return;
-    unsubscribeMotoristas = db.collection(COLECAO_USUARIOS)
-      .where("tipo", "==", "motorista")
+    unsubscribeMotoristas = db.collection(COLECAO_MOTORISTAS)
+      .orderBy("nome")
       .onSnapshot(snapshot => {
         motoristas = snapshot.docs.map(doc => {
           const dados = doc.data();
-          return { id: doc.id, ...dados, status: dados.status || "ativo" };
+          return { id: doc.id, ...dados, status: dados.status || "pendente" };
         });
         atualizarTabelaMotoristasAdmin();
         atualizarTabelaSalarios();
         atualizarOpcoesFiltrosChefe();
         atualizarResumoMotorista();
+        atualizarPerfilComMotoristaVinculado();
       }, error => {
         console.error("Erro ao listar motoristas", error);
         mostrarFeedbackLogin("Sem permissão para carregar motoristas. Apenas administradores podem acessar.");
@@ -1677,9 +1730,15 @@
 
     mostrarFeedbackLogin("Validando sessão...");
     try {
-      await garantirPerfilUsuario(user);
+      const perfilGerado = await garantirPerfilUsuario(user);
+      if (!perfilGerado && user.uid !== SUPER_ADMIN_UID) {
+        await auth.signOut();
+        return;
+      }
     } catch (error) {
       console.error("Falha ao preparar perfil", error);
+      await auth.signOut();
+      return;
     }
     iniciarListenerPerfil(user.uid);
     aplicarVisibilidadePorPapel();
@@ -1760,10 +1819,17 @@
     atualizarTabelaMotorista();
   });
 
+  async function atualizarPerfilVinculado(uid, payload) {
+    if (!uid) return;
+    await db.collection(COLECAO_USUARIOS).doc(uid).set(payload, { merge: true });
+  }
+
   async function salvarSalario(nome, salario) {
     const motorista = motoristas.find(m => normalizarTexto(m.nome) === normalizarTexto(nome));
     if (!motorista) return;
-    await db.collection(COLECAO_USUARIOS).doc(motorista.id).set({ salario }, { merge: true });
+    const payload = { salario };
+    await db.collection(COLECAO_MOTORISTAS).doc(motorista.id).set(payload, { merge: true });
+    await atualizarPerfilVinculado(motorista.uid, { salario });
   }
 
   btnSalvarSalario?.addEventListener("click", async () => {
@@ -1776,6 +1842,42 @@
     await salvarSalario(nome, salario);
     salarioMotoristaNomeInput.value = "";
     salarioMotoristaValorInput.value = "";
+  });
+
+  btnAdicionarMotorista?.addEventListener("click", async () => {
+    const nome = novoMotoristaNomeInput.value.trim();
+    const email = novoMotoristaEmailInput.value.trim().toLowerCase();
+    const salario = parseFloat(novoMotoristaSalarioInput.value.replace(",", "."));
+    const caminhao = novoMotoristaCaminhaoInput.value.trim();
+
+    if (!nome || !email) {
+      alert("Informe nome e email para cadastrar o motorista.");
+      return;
+    }
+
+    const payloadBase = {
+      nome,
+      email,
+      salario: isNaN(salario) ? 0 : salario,
+      caminhao,
+    };
+
+    const existentes = await db.collection(COLECAO_MOTORISTAS).where("email", "==", email).limit(1).get();
+    if (!existentes.empty) {
+      await existentes.docs[0].ref.set(payloadBase, { merge: true });
+    } else {
+      await db.collection(COLECAO_MOTORISTAS).add({
+        ...payloadBase,
+        status: "pendente",
+        uid: "",
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    novoMotoristaNomeInput.value = "";
+    novoMotoristaEmailInput.value = "";
+    novoMotoristaSalarioInput.value = "";
+    novoMotoristaCaminhaoInput.value = "";
   });
 
   function calcularFreteAutomatico() {
@@ -1972,7 +2074,7 @@
   }
 
   function obterSalarioPorUserId(userId) {
-    const motorista = motoristas.find(m => m.id === userId);
+    const motorista = motoristas.find(m => m.uid === userId);
     return motorista ? Number(motorista.salario) || 0 : 0;
   }
 
@@ -2535,7 +2637,9 @@
       const nomeInput = document.createElement("input");
       nomeInput.value = item.nome || "";
       nomeInput.addEventListener("change", async () => {
-        await db.collection(COLECAO_USUARIOS).doc(item.id).set({ nome: nomeInput.value }, { merge: true });
+        const payload = { nome: nomeInput.value };
+        await db.collection(COLECAO_MOTORISTAS).doc(item.id).set(payload, { merge: true });
+        await atualizarPerfilVinculado(item.uid, payload);
       });
       tdNome.appendChild(nomeInput);
 
@@ -2544,7 +2648,7 @@
 
       const tdStatus = document.createElement("td");
       const statusPill = document.createElement("span");
-      const statusAtual = item.status || "ativo";
+      const statusAtual = item.status || "pendente";
       statusPill.className = `status-pill ${statusAtual === "ativo" ? "pill-ok" : "pill-alert"}`;
       statusPill.textContent = statusAtual === "ativo" ? "Ativo" : "Pendente";
       tdStatus.appendChild(statusPill);
@@ -2557,7 +2661,9 @@
       salarioInput.value = item.salario || 0;
       salarioInput.addEventListener("change", async () => {
         const val = parseFloat(salarioInput.value.replace(",", "."));
-        await db.collection(COLECAO_USUARIOS).doc(item.id).set({ salario: isNaN(val) ? 0 : val }, { merge: true });
+        const payload = { salario: isNaN(val) ? 0 : val };
+        await db.collection(COLECAO_MOTORISTAS).doc(item.id).set(payload, { merge: true });
+        await atualizarPerfilVinculado(item.uid, payload);
       });
       tdSalario.appendChild(salarioInput);
 
@@ -2565,7 +2671,9 @@
       const caminhaoInput = document.createElement("input");
       caminhaoInput.value = item.caminhao || "";
       caminhaoInput.addEventListener("change", async () => {
-        await db.collection(COLECAO_USUARIOS).doc(item.id).set({ caminhao: caminhaoInput.value }, { merge: true });
+        const payload = { caminhao: caminhaoInput.value };
+        await db.collection(COLECAO_MOTORISTAS).doc(item.id).set(payload, { merge: true });
+        await atualizarPerfilVinculado(item.uid, payload);
       });
       tdCaminhao.appendChild(caminhaoInput);
 
@@ -2575,11 +2683,13 @@
       salvarBtn.textContent = "Salvar";
       salvarBtn.addEventListener("click", async () => {
         const salarioVal = parseFloat(salarioInput.value.replace(",", "."));
-        await db.collection(COLECAO_USUARIOS).doc(item.id).set({
+        const payload = {
           nome: nomeInput.value.trim(),
           salario: isNaN(salarioVal) ? 0 : salarioVal,
           caminhao: caminhaoInput.value.trim()
-        }, { merge: true });
+        };
+        await db.collection(COLECAO_MOTORISTAS).doc(item.id).set(payload, { merge: true });
+        await atualizarPerfilVinculado(item.uid, payload);
       });
       tdAcoes.appendChild(salvarBtn);
 
@@ -2589,7 +2699,9 @@
         validarBtn.textContent = "Validar";
         validarBtn.style.fontSize = "11px";
         validarBtn.addEventListener("click", async () => {
-          await db.collection(COLECAO_USUARIOS).doc(item.id).set({ status: "ativo" }, { merge: true });
+          const payload = { status: "ativo" };
+          await db.collection(COLECAO_MOTORISTAS).doc(item.id).set(payload, { merge: true });
+          await atualizarPerfilVinculado(item.uid, payload);
         });
         tdAcoes.appendChild(validarBtn);
       }
@@ -2601,7 +2713,7 @@
       removerBtn.addEventListener("click", async () => {
         const confirmado = await mostrarDialogoConfirmacao("Remover motorista", "Deseja remover este motorista da lista?");
         if (!confirmado) return;
-        await db.collection(COLECAO_USUARIOS).doc(item.id).delete();
+        await db.collection(COLECAO_MOTORISTAS).doc(item.id).delete();
       });
       tdAcoes.appendChild(removerBtn);
 

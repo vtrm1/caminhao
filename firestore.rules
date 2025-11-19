@@ -35,5 +35,21 @@ service cloud.firestore {
       allow update: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid);
       allow delete: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid);
     }
+
+    match /motoristas/{motoristaId} {
+      allow read: if isAdminProfile() || (signedIn() && resource.data.email == request.auth.token.email);
+      allow create: if isAdminProfile();
+      allow update: if isAdminProfile() || (
+        signedIn() &&
+        resource.data.email == request.auth.token.email &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.nome == resource.data.nome &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.salario == resource.data.salario &&
+        request.resource.data.caminhao == resource.data.caminhao &&
+        (request.resource.data.status == resource.data.status || request.resource.data.status == "ativo")
+      );
+      allow delete: if isAdminProfile();
+    }
   }
 }
