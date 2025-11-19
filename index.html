@@ -353,6 +353,102 @@
       box-shadow: 0 14px 34px rgba(30, 58, 138, 0.14);
     }
 
+    .payables-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .payable-card {
+      background: linear-gradient(145deg, rgba(30, 58, 138, 0.06), rgba(226, 232, 240, 0.8));
+      border: 1px solid rgba(30, 58, 138, 0.12);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 140px;
+    }
+
+    .payable-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: var(--cor-azul-escuro);
+    }
+
+    .payable-header h4 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .payable-header span {
+      font-size: 12px;
+      color: var(--cor-texto-suave);
+    }
+
+    .payable-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+    }
+
+    .payable-grid div {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(30, 58, 138, 0.1);
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .payable-grid small {
+      color: var(--cor-texto-suave);
+      font-size: 12px;
+    }
+
+    .payable-grid strong {
+      color: var(--cor-azul-escuro);
+      font-size: 14px;
+    }
+
+    .collapsible-trigger {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #e5ebfb;
+      border: 1px solid var(--cor-azul-borda);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--cor-azul-escuro);
+      font-weight: 600;
+      cursor: pointer;
+      gap: 8px;
+    }
+
+    .collapsible-trigger span {
+      font-size: 14px;
+    }
+
+    .collapsible-trigger svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.2s ease;
+    }
+
+    .collapsible-trigger.open svg {
+      transform: rotate(90deg);
+    }
+
+    .collapsible-content {
+      margin-top: 10px;
+    }
+
     .card h2,
     .card h3 {
       margin-top: 0;
@@ -1099,154 +1195,183 @@
       </div>
     </div>
 
-    <hr class="section-divider">
-
-    <div class="card">
-      <div class="card-header-between">
-        <h3 class="section-title">Motoristas no período</h3>
-        <p class="info-text">Frete bruto, comissões, salários e viagens.</p>
-      </div>
-      <div id="cardsMotoristasResumo" class="driver-grid">
-        <div class="info-text">Nenhum frete encontrado para o filtro atual.</div>
-      </div>
-    </div>
-
-    <hr class="section-divider">
-    <div class="card">
-      <div class="card-header-between">
-        <h3 class="section-title">Resumo por semana</h3>
-        <p class="info-text">Totais gerais por semana dentro do mês filtrado.</p>
-      </div>
-      <div id="resumoSemanasGeral" class="weeks-grid"></div>
-    </div>
-
-    <hr class="section-divider">
-    <div class="card">
-      <h3 class="section-title">Fretes detalhados</h3>
-      <p class="info-text">Lista completa de viagens com os filtros aplicados.</p>
-      <div class="table-wrapper">
-        <table id="tabelaFretesChefe">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Semana</th>
-              <th>Motorista</th>
-              <th>Caminhão</th>
-              <th>Nota</th>
-              <th>CTE</th>
-              <th class="text-right">Peso líq. (kg)</th>
-              <th class="text-right">R$/ton</th>
-              <th class="text-right">Frete (R$)</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Linhas geradas via JS -->
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <hr class="section-divider">
-    <div class="card" id="cardIndicadores">
-      <h3 class="section-title">Indicadores consolidados</h3>
-      <p class="info-text">Médias gerais e ranking dos motoristas no mês.</p>
-      <div class="summary-grid indicators-grid">
-        <div class="summary-box">
-          <span class="indicator-label">Frete médio por viagem</span>
-          <div class="summary-value" id="indicadorFreteMedio">R$ 0,00</div>
+      <div class="card">
+        <div class="card-header-between">
+          <h3 class="section-title">Valores a pagar no período</h3>
+          <p class="info-text">Frete bruto do mês, comissão, salário e total previsto por motorista.</p>
         </div>
-        <div class="summary-box">
-          <span class="indicator-label">Peso médio por viagem</span>
-          <div class="summary-value" id="indicadorPesoMedio">0,00 t</div>
-        </div>
-        <div class="summary-box">
-          <span class="indicator-label">Semana com maior frete</span>
-          <div class="summary-value" id="indicadorSemanaAlta">-</div>
-        </div>
-        <div class="summary-box">
-          <span class="indicator-label">Semana com menor frete</span>
-          <div class="summary-value" id="indicadorSemanaBaixa">-</div>
-        </div>
-      </div>
-      <div class="ranking-list">
-        <h4>Ranking de motoristas</h4>
-        <ol id="listaRankingMotoristas"></ol>
-      </div>
-    </div>
-
-    <hr class="section-divider">
-
-    <div class="card admin-only" id="cardSalariosMotoristas">
-      <h3 class="section-title">Salários dos motoristas</h3>
-      <p class="info-text">
-        Defina o salário fixo de cada motorista. O sistema soma esse valor com a comissão configurada no filtro acima para chegar ao pagamento.
-      </p>
-
-      <div class="form-grid">
-        <div>
-          <label for="salarioMotoristaNome">Motorista</label>
-          <input type="text" id="salarioMotoristaNome" list="motoristasDatalist" placeholder="Ex: João da Silva" />
-          <datalist id="motoristasDatalist"></datalist>
-          <p class="datalist-hint">Sugestões preenchidas automaticamente com os fretes lançados.</p>
-        </div>
-        <div>
-          <label for="salarioMotoristaValor">Salário fixo (R$)</label>
-          <input type="number" id="salarioMotoristaValor" step="0.01" min="0" placeholder="Ex: 3500,00" />
-        </div>
-        <div class="actions">
-          <button class="btn btn-primary" id="btnSalvarSalario">Salvar salário</button>
+        <div id="cardsValoresPagar" class="payables-grid">
+          <div class="info-text">Nenhum frete encontrado para o filtro atual.</div>
         </div>
       </div>
 
-      <div class="table-wrapper">
-        <table id="tabelaSalariosMotoristas">
-          <thead>
-            <tr>
-              <th>Motorista</th>
-              <th class="text-right">Salário (R$)</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- preenchido via JS -->
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <hr class="section-divider">
 
-    <div class="card admin-only" id="cardGestaoMotoristas">
-      <div class="card-header-between">
-        <div>
-          <h3 class="section-title">Motoristas cadastrados</h3>
-          <p class="info-text">Cadastre motoristas manualmente e acompanhe os pendentes antes do primeiro login.</p>
+      <div class="card">
+        <div class="card-header-between">
+          <h3 class="section-title">Motoristas no período</h3>
+          <p class="info-text">Frete bruto, comissões, salários e viagens.</p>
+        </div>
+        <div id="cardsMotoristasResumo" class="driver-grid">
+          <div class="info-text">Nenhum frete encontrado para o filtro atual.</div>
         </div>
       </div>
 
-      <div class="motorista-form-grid">
-        <input type="text" id="novoMotoristaNome" placeholder="Nome completo" />
-        <input type="email" id="novoMotoristaEmail" placeholder="Email" />
-        <input type="number" id="novoMotoristaSalario" placeholder="Salário" min="0" step="0.01" />
-        <input type="text" id="novoMotoristaCaminhao" placeholder="Caminhão" />
-        <button class="btn btn-primary" id="btnAdicionarMotorista">Adicionar motorista</button>
+      <div class="card">
+        <button class="collapsible-trigger" data-collapse-target="secResumoSemanal">
+          <span>Resumo por semana</span>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="secResumoSemanal" class="collapsible-content hidden">
+          <p class="info-text">Totais gerais por semana dentro do mês filtrado.</p>
+          <div id="resumoSemanasGeral" class="weeks-grid"></div>
+        </div>
       </div>
 
-      <div class="table-wrapper">
-        <table id="tabelaMotoristasAdmin">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Salário</th>
-              <th>Caminhão</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div class="card">
+        <button class="collapsible-trigger" data-collapse-target="secFretesDetalhados">
+          <span>Fretes detalhados</span>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="secFretesDetalhados" class="collapsible-content hidden">
+          <p class="info-text">Lista completa de viagens com os filtros aplicados.</p>
+          <div class="table-wrapper">
+            <table id="tabelaFretesChefe">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Semana</th>
+                  <th>Motorista</th>
+                  <th>Caminhão</th>
+                  <th>Nota</th>
+                  <th>CTE</th>
+                  <th class="text-right">Peso líq. (kg)</th>
+                  <th class="text-right">R$/ton</th>
+                  <th class="text-right">Frete (R$)</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Linhas geradas via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-    </div>
+
+      <div class="card">
+        <button class="collapsible-trigger" data-collapse-target="secIndicadores">
+          <span>Indicadores consolidados</span>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="secIndicadores" class="collapsible-content hidden">
+          <p class="info-text">Médias gerais e ranking dos motoristas no mês.</p>
+          <div class="summary-grid indicators-grid">
+            <div class="summary-box">
+              <span class="indicator-label">Frete médio por viagem</span>
+              <div class="summary-value" id="indicadorFreteMedio">R$ 0,00</div>
+            </div>
+            <div class="summary-box">
+              <span class="indicator-label">Peso médio por viagem</span>
+              <div class="summary-value" id="indicadorPesoMedio">0,00 t</div>
+            </div>
+            <div class="summary-box">
+              <span class="indicator-label">Semana com maior frete</span>
+              <div class="summary-value" id="indicadorSemanaAlta">-</div>
+            </div>
+            <div class="summary-box">
+              <span class="indicator-label">Semana com menor frete</span>
+              <div class="summary-value" id="indicadorSemanaBaixa">-</div>
+            </div>
+          </div>
+          <div class="ranking-list">
+            <h4>Ranking de motoristas</h4>
+            <ol id="listaRankingMotoristas"></ol>
+          </div>
+        </div>
+      </div>
+
+      <div class="card admin-only">
+        <button class="collapsible-trigger" data-collapse-target="secSalarios">
+          <span>Salários dos motoristas</span>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="secSalarios" class="collapsible-content hidden">
+          <p class="info-text">
+            Defina o salário fixo de cada motorista. O sistema soma esse valor com a comissão configurada no filtro acima para chegar ao pagamento.
+          </p>
+
+          <div class="form-grid">
+            <div>
+              <label for="salarioMotoristaNome">Motorista</label>
+              <input type="text" id="salarioMotoristaNome" list="motoristasDatalist" placeholder="Ex: João da Silva" />
+              <datalist id="motoristasDatalist"></datalist>
+              <p class="datalist-hint">Sugestões preenchidas automaticamente com os fretes lançados.</p>
+            </div>
+            <div>
+              <label for="salarioMotoristaValor">Salário fixo (R$)</label>
+              <input type="number" id="salarioMotoristaValor" step="0.01" min="0" placeholder="Ex: 3500,00" />
+            </div>
+            <div class="actions">
+              <button class="btn btn-primary" id="btnSalvarSalario">Salvar salário</button>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table id="tabelaSalariosMotoristas">
+              <thead>
+                <tr>
+                  <th>Motorista</th>
+                  <th class="text-right">Salário (R$)</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- preenchido via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card admin-only">
+        <button class="collapsible-trigger" data-collapse-target="secMotoristasCadastrados">
+          <span>Motoristas cadastrados</span>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="secMotoristasCadastrados" class="collapsible-content hidden">
+          <div class="card-header-between">
+            <div>
+              <h3 class="section-title">Motoristas cadastrados</h3>
+              <p class="info-text">Cadastre motoristas manualmente e acompanhe os pendentes antes do primeiro login.</p>
+            </div>
+          </div>
+
+          <div class="motorista-form-grid">
+            <input type="text" id="novoMotoristaNome" placeholder="Nome completo" />
+            <input type="email" id="novoMotoristaEmail" placeholder="Email" />
+            <input type="number" id="novoMotoristaSalario" placeholder="Salário" min="0" step="0.01" />
+            <input type="text" id="novoMotoristaCaminhao" placeholder="Caminhão" />
+            <button class="btn btn-primary" id="btnAdicionarMotorista">Adicionar motorista</button>
+          </div>
+
+          <div class="table-wrapper">
+            <table id="tabelaMotoristasAdmin">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th>Salário</th>
+                  <th>Caminhão</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
   </section>
 
 
@@ -1307,6 +1432,7 @@
   const resumoPesoTransportadoSpan = document.getElementById("resumoPesoTransportado");
   const resumoComissaoTotalSpan = document.getElementById("resumoComissaoTotal");
   const resumoFolhaTotalSpan = document.getElementById("resumoFolhaTotal");
+  const cardsValoresPagar = document.getElementById("cardsValoresPagar");
   const cardsMotoristasResumo = document.getElementById("cardsMotoristasResumo");
   const resumoSemanasGeralWrapper = document.getElementById("resumoSemanasGeral");
   const rankingMotoristasLista = document.getElementById("listaRankingMotoristas");
@@ -1355,6 +1481,7 @@
   const tabContents = document.querySelectorAll(".tab-content");
   const adminOnlyElements = document.querySelectorAll(".admin-only");
   const adminTabButton = document.getElementById("chefeTabButton");
+  const collapsibleTriggers = document.querySelectorAll(".collapsible-trigger");
   const chartRangeSelect = document.getElementById("chartRangeSelect");
   const chartCanvas = document.getElementById("desempenhoChefeChart");
   const chartEmptyMessage = document.getElementById("chartEmptyMessage");
@@ -2083,6 +2210,55 @@
     return alvo ? Number(alvo.salario) || 0 : 0;
   }
 
+  function renderizarCardsValoresPagar(listaFretes, comissaoPercent) {
+    if (!cardsValoresPagar) return;
+
+    cardsValoresPagar.innerHTML = "";
+    const mapa = agruparFretesPorMotorista(listaFretes);
+    const ids = Object.keys(mapa);
+
+    if (!ids.length) {
+      cardsValoresPagar.innerHTML = '<div class="info-text">Nenhum frete encontrado para o filtro atual.</div>';
+      return;
+    }
+
+    ids.forEach(id => {
+      const info = mapa[id];
+      const salario = obterSalarioPorUserId(id) || obterSalarioMotoristaPorNome(info.nome);
+      const comissao = info.freteTotal * (comissaoPercent / 100);
+      const totalPrevisto = salario + comissao;
+
+      const card = document.createElement("div");
+      card.className = "payable-card";
+      card.innerHTML = `
+        <div class="payable-header">
+          <h4>${info.nome}</h4>
+          <span>${info.viagens} viagens</span>
+        </div>
+        <div class="payable-grid">
+          <div>
+            <small>Frete bruto</small>
+            <strong>${formatarMoeda(info.freteTotal)}</strong>
+          </div>
+          <div>
+            <small>Comissão</small>
+            <strong>${formatarMoeda(comissao)}</strong>
+          </div>
+          <div>
+            <small>Salário</small>
+            <strong>${formatarMoeda(salario)}</strong>
+          </div>
+          <div>
+            <small>Total a pagar</small>
+            <strong>${formatarMoeda(totalPrevisto)}</strong>
+          </div>
+        </div>
+      `;
+
+      cardsValoresPagar.appendChild(card);
+    });
+  }
+
   function atualizarResumoMotorista(fretesDoMotoristaLista = null, mesSelecionado = obterMesMotoristaSelecionado()) {
     if (!mensagemResumoMotorista || !resumoMotoristaGrid) return;
 
@@ -2418,6 +2594,17 @@
     dataFreteInput.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
+  collapsibleTriggers.forEach(btn => {
+    const target = document.getElementById(btn.dataset.collapseTarget);
+    target?.classList.add("hidden");
+    btn.addEventListener("click", () => {
+      const alvo = document.getElementById(btn.dataset.collapseTarget);
+      if (!alvo) return;
+      alvo.classList.toggle("hidden");
+      btn.classList.toggle("open");
+    });
+  });
+
   tabButtons.forEach(btn => {
     btn.addEventListener("click", () => {
       const tabId = btn.dataset.tab;
@@ -2457,6 +2644,7 @@
     const comissaoPercent = obterPercentualComissao();
     const fretesFiltrados = obterFretesFiltrados();
     preencherTabelaFretesChefe(fretesFiltrados);
+    renderizarCardsValoresPagar(fretesFiltrados, comissaoPercent);
     const { totalFolha, ranking } = renderizarCardsMotoristas(fretesFiltrados, comissaoPercent);
     renderizarResumoMes(fretesFiltrados, comissaoPercent, totalFolha);
     const resumoSemanas = renderizarResumoSemanalGeral(fretesFiltrados, comissaoPercent);
