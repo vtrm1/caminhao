@@ -763,6 +763,19 @@
       gap: 8px;
       flex-wrap: wrap;
       margin-top: 8px;
+      align-items: center;
+    }
+
+    #btnSalvarSalario {
+      width: auto;
+      min-width: 180px;
+    }
+
+    @media (max-width: 640px) {
+      #btnSalvarSalario {
+        width: 100%;
+        min-width: 0;
+      }
     }
 
     .btn {
@@ -846,6 +859,7 @@
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
       margin-top: 16px;
+      margin-bottom: 32px;
     }
 
     .summary-box {
@@ -1136,6 +1150,39 @@
 
   <!-- ========== ÁREA DO ADMIN ========== -->
   <section id="chefe-tab" class="tab-content hidden admin-only">
+    <div class="card">
+      <div class="card-header-between">
+        <h3 class="section-title">Valores a pagar no período</h3>
+        <p class="info-text">Frete bruto do mês, comissão, salário e total previsto por motorista.</p>
+      </div>
+      <div id="cardsValoresPagar" class="payables-grid">
+        <div class="info-text">Nenhum frete encontrado para o filtro atual.</div>
+      </div>
+    </div>
+
+    <div class="summary-grid summary-large" id="cardsResumoMes">
+      <div class="summary-box">
+        <span class="summary-subtext">Total de frete no mês</span>
+        <div class="summary-value" id="resumoTotalFrete">R$ 0,00</div>
+        <p class="summary-subtext">Período de acordo com os filtros</p>
+      </div>
+      <div class="summary-box">
+        <span class="summary-subtext">Peso total transportado</span>
+        <div class="summary-value" id="resumoPesoTransportado">0,00 t</div>
+        <p class="summary-subtext">Soma do peso líquido</p>
+      </div>
+      <div class="summary-box">
+        <span class="summary-subtext">Comissão total</span>
+        <div class="summary-value" id="resumoComissaoTotal">R$ 0,00</div>
+        <p class="summary-subtext">Aplicando o percentual escolhido</p>
+      </div>
+      <div class="summary-box">
+        <span class="summary-subtext">Total da folha</span>
+        <div class="summary-value" id="resumoFolhaTotal">R$ 0,00</div>
+        <p class="summary-subtext">Salários + comissões</p>
+      </div>
+    </div>
+
     <div class="card" id="adminFiltersCard">
       <div class="card-header-between">
         <div>
@@ -1171,39 +1218,6 @@
         </div>
       </div>
     </div>
-
-    <div class="summary-grid summary-large" id="cardsResumoMes">
-      <div class="summary-box">
-        <span class="summary-subtext">Total de frete no mês</span>
-        <div class="summary-value" id="resumoTotalFrete">R$ 0,00</div>
-        <p class="summary-subtext">Período de acordo com os filtros</p>
-      </div>
-      <div class="summary-box">
-        <span class="summary-subtext">Peso total transportado</span>
-        <div class="summary-value" id="resumoPesoTransportado">0,00 t</div>
-        <p class="summary-subtext">Soma do peso líquido</p>
-      </div>
-      <div class="summary-box">
-        <span class="summary-subtext">Comissão total</span>
-        <div class="summary-value" id="resumoComissaoTotal">R$ 0,00</div>
-        <p class="summary-subtext">Aplicando o percentual escolhido</p>
-      </div>
-      <div class="summary-box">
-        <span class="summary-subtext">Total da folha</span>
-        <div class="summary-value" id="resumoFolhaTotal">R$ 0,00</div>
-        <p class="summary-subtext">Salários + comissões</p>
-      </div>
-    </div>
-
-      <div class="card">
-        <div class="card-header-between">
-          <h3 class="section-title">Valores a pagar no período</h3>
-          <p class="info-text">Frete bruto do mês, comissão, salário e total previsto por motorista.</p>
-        </div>
-        <div id="cardsValoresPagar" class="payables-grid">
-          <div class="info-text">Nenhum frete encontrado para o filtro atual.</div>
-        </div>
-      </div>
 
       <hr class="section-divider">
 
