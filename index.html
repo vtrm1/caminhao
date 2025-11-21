@@ -1634,12 +1634,12 @@
   function aplicarDadosPerfilNosCampos() {
     if (!motoristaNomeInput || !caminhaoIdInput) return;
 
-    const nome = perfilAtual?.nome || usuarioAtual?.displayName || usuarioAtual?.email || "";
+    const vinculado = motoristas.find(m => m.uid === usuarioAtual?.uid);
+    const nome = vinculado?.nome || perfilAtual?.nome || usuarioAtual?.displayName || usuarioAtual?.email || "";
     motoristaNomeInput.value = nome;
     motoristaNomeInput.readOnly = true;
     motoristaNomeInput.placeholder = nome || "Nome do motorista";
 
-    const vinculado = motoristas.find(m => m.uid === usuarioAtual?.uid);
     const caminhao = perfilAtual?.caminhao || vinculado?.caminhao || "";
     if (caminhao) {
       caminhaoIdInput.value = caminhao;
@@ -1650,9 +1650,33 @@
     if (!usuarioAtual || !perfilAtual) return;
     const vinculado = motoristas.find(m => m.uid === usuarioAtual.uid);
     if (!vinculado) return;
-    perfilAtual.salario = Number(vinculado.salario) || perfilAtual.salario || 0;
-    perfilAtual.caminhao = vinculado.caminhao || perfilAtual.caminhao || "";
+
+    const atualizacoes = {};
+
+    const salarioCorrigido = Number(vinculado.salario) || 0;
+    if (salarioCorrigido !== perfilAtual.salario) {
+      perfilAtual.salario = salarioCorrigido;
+      atualizacoes.salario = salarioCorrigido;
+    }
+
+    const caminhaoCorrigido = vinculado.caminhao || perfilAtual.caminhao || "";
+    if (caminhaoCorrigido !== perfilAtual.caminhao) {
+      perfilAtual.caminhao = caminhaoCorrigido;
+      atualizacoes.caminhao = caminhaoCorrigido;
+    }
+
+    const nomeCorrigido = vinculado.nome || perfilAtual.nome || usuarioAtual.displayName || usuarioAtual.email || "";
+    if (nomeCorrigido && nomeCorrigido !== perfilAtual.nome) {
+      perfilAtual.nome = nomeCorrigido;
+      atualizacoes.nome = nomeCorrigido;
+    }
+
+    if (Object.keys(atualizacoes).length) {
+      db.collection(COLECAO_USUARIOS).doc(usuarioAtual.uid).set(atualizacoes, { merge: true });
+    }
+
     aplicarDadosPerfilNosCampos();
+    atualizarBadgeUsuario();
     atualizarResumoMotorista();
   }
 
@@ -1663,7 +1687,7 @@
       return;
     }
     const nome = perfilAtual?.nome || usuarioAtual.displayName || usuarioAtual.email || "-";
-    const tipo = perfilAtual?.tipo === "admin" ? "Admin" : "Motorista";
+    const tipo = perfilAtual?.tipo === "admin" ? "Admin" : "Usuário";
     const avatarUrl = usuarioAtual.photoURL;
 
     badgeUserName.textContent = nome;
@@ -1854,23 +1878,29 @@
 
   function iniciarListenerMotoristas() {
     unsubscribeMotoristas?.();
-    if (!ehAdmin()) return;
-    unsubscribeMotoristas = db.collection(COLECAO_MOTORISTAS)
-      .orderBy("nome")
-      .onSnapshot(snapshot => {
-        motoristas = snapshot.docs.map(doc => {
-          const dados = doc.data();
-          return { id: doc.id, ...dados, status: dados.status || "pendente" };
-        });
-        atualizarTabelaMotoristasAdmin();
-        atualizarTabelaSalarios();
-        atualizarOpcoesFiltrosChefe();
-        atualizarResumoMotorista();
-        atualizarPerfilComMotoristaVinculado();
-      }, error => {
-        console.error("Erro ao listar motoristas", error);
-        mostrarFeedbackLogin("Sem permissão para carregar motoristas. Apenas administradores podem acessar.");
+    if (!usuarioAtual) return;
+
+    const base = db.collection(COLECAO_MOTORISTAS);
+    const query = ehAdmin()
+      ? base.orderBy("nome")
+      : base.where("uid", "==", usuarioAtual.uid);
+
+    unsubscribeMotoristas = query.onSnapshot(snapshot => {
+      motoristas = snapshot.docs.map(doc => {
+        const dados = doc.data();
+        return { id: doc.id, ...dados, status: dados.status || "pendente" };
       });
+      atualizarTabelaMotoristasAdmin();
+      atualizarTabelaSalarios();
+      atualizarOpcoesFiltrosChefe();
+      atualizarResumoMotorista();
+      atualizarPerfilComMotoristaVinculado();
+    }, error => {
+      console.error("Erro ao listar motoristas", error);
+      if (ehAdmin()) {
+        mostrarFeedbackLogin("Sem permissão para carregar motoristas. Apenas administradores podem acessar.");
+      }
+    });
   }
 
   function iniciarListenerFretes() {
