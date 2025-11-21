@@ -1637,7 +1637,7 @@
     const vinculado = motoristas.find(m => m.uid === usuarioAtual?.uid);
     const nome = vinculado?.nome || perfilAtual?.nome || usuarioAtual?.displayName || usuarioAtual?.email || "";
     motoristaNomeInput.value = nome;
-    motoristaNomeInput.readOnly = true;
+    motoristaNomeInput.readOnly = !ehAdmin();
     motoristaNomeInput.placeholder = nome || "Nome do motorista";
 
     const caminhao = perfilAtual?.caminhao || vinculado?.caminhao || "";
@@ -2133,7 +2133,7 @@
 
     const freteExistente = freteEmEdicaoId ? fretes.find(f => f.id === freteEmEdicaoId) : null;
     const donoOriginal = freteExistente?.userId || usuarioAtual.uid;
-    const nomeMotorista = freteExistente?.motoristaNome || perfilAtual?.nome || usuarioAtual.email;
+    const nomeMotorista = (motoristaNomeInput.value || freteExistente?.motoristaNome || perfilAtual?.nome || usuarioAtual.email || "").trim();
     const caminhaoId = caminhaoIdInput.value.trim() || perfilAtual.caminhao || "";
     const dataFrete = dataFreteInput.value;
     const nota = notaFreteInput.value.trim();
@@ -2204,6 +2204,7 @@
     freteTotalInput.value = "";
     dataFreteInput.value = "";
     motoristaNomeInput.value = perfilAtual?.nome || usuarioAtual?.displayName || usuarioAtual?.email || "";
+    motoristaNomeInput.readOnly = !ehAdmin();
     caminhaoIdInput.value = perfilAtual?.caminhao || "";
   }
 
@@ -2686,6 +2687,7 @@
 
   function preencherFormularioFreteParaEdicao(frete) {
     freteEmEdicaoId = frete.id;
+    motoristaNomeInput.readOnly = !ehAdmin();
     motoristaNomeInput.value = frete.motoristaNome || perfilAtual?.nome || "";
     caminhaoIdInput.value = frete.caminhaoId || perfilAtual?.caminhao || "";
     dataFreteInput.value = frete.data || "";
