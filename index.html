@@ -5,9 +5,13 @@
   <title>Controle de Fretes - Caminhões</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#1E3A8A" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Fretes" />
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icon-192-192.png" sizes="192x192" />
-  <link rel="apple-touch-icon" href="/icon-192-192.png" />
+  <link rel="apple-touch-icon" href="/icon-192-192.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="/icon-512-512.png" sizes="512x512" />
 
   <style>
     :root {
@@ -1033,8 +1037,8 @@
 
       <div class="form-grid">
         <div>
-          <label for="motoristaNome">Motorista</label>
-          <input type="text" id="motoristaNome" placeholder="Nome do motorista" readonly />
+          <label for="motoristaNome">Nome</label>
+          <input type="text" id="motoristaNome" placeholder="Nome" readonly />
         </div>
         <div>
           <label for="caminhaoId">Caminhão (identificação)</label>
@@ -1129,7 +1133,7 @@
       <p class="info-text" id="mensagemResumoMotorista">Resumo atualizado com os fretes do usuário logado.</p>
       <div class="summary-grid hidden" id="resumoMotoristaGrid">
         <div class="summary-box">
-          <span class="summary-subtext">Motorista</span>
+          <span class="summary-subtext">Usuário</span>
           <div class="summary-value" id="resumoMotoristaNome">-</div>
         </div>
         <div class="summary-box">
