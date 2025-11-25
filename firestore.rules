@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && (
+        request.auth.uid == "INGKKP7ibHMZ0NX5YE8VTGgui592" ||
+        request.auth.uid == "vbHbOOIru8MwWR9cWLow9mDNkzo2"
+      );
+    }
+
+    function currentUserData() {
+      return signedIn()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        : null;
+    }
+
+    function isAdminProfile() {
+      return isSuperAdmin() || (signedIn() && currentUserData() != null && currentUserData().tipo == "admin");
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || (signedIn() && userId != request.auth.uid && isAdminProfile());
+      allow create: if isAdminProfile() || (isOwner(userId) && request.resource.data.tipo == "motorista");
+      allow update, delete: if isOwner(userId) || isAdminProfile();
+    }
+
+    match /fretes/{freteId} {
+      allow create: if isAdminProfile() || (signedIn() && request.resource.data.userId == request.auth.uid);
+      allow read: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid);
+      allow delete: if isAdminProfile() || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    match /motoristas/{motoristaId} {
+      allow read: if isAdminProfile() || (signedIn() && resource.data.email == request.auth.token.email);
+      allow create: if isAdminProfile();
+      allow update: if isAdminProfile() || (
+        signedIn() &&
+        resource.data.email == request.auth.token.email &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.nome == resource.data.nome &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.salario == resource.data.salario &&
+        request.resource.data.caminhao == resource.data.caminhao &&
+        (request.resource.data.status == resource.data.status || request.resource.data.status == "ativo")
+      );
+      allow delete: if isAdminProfile();
+    }
+  }
+}
