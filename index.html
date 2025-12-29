@@ -772,6 +772,41 @@
       align-items: center;
     }
 
+    .password-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 220px;
+    }
+
+    .password-cell input {
+      flex: 1;
+    }
+
+    .password-toggle {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--cor-azul-borda);
+      background: #fff;
+      color: var(--cor-azul-escuro);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .password-toggle:hover {
+      background: var(--cor-azul-claro);
+      border-color: var(--cor-primaria);
+    }
+
+    .password-toggle svg {
+      width: 18px;
+      height: 18px;
+    }
+
     #btnSalvarSalario {
       width: auto;
       min-width: 180px;
@@ -1386,6 +1421,7 @@
                   <th>Status</th>
                   <th>Salário</th>
                   <th>Caminhão</th>
+                  <th>Senha</th>
                   <th>Ações</th>
                 </tr>
               </thead>
@@ -2036,6 +2072,42 @@
     });
   }
 
+  function criarBotaoToggleSenha(input) {
+    const eyeIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    const eyeOffIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.5 5.2A10.8 10.8 0 0 1 12 5c7 0 11 7 11 7a16.7 16.7 0 0 1-3.2 4.4"/><path d="M6.1 6.1A16.5 16.5 0 0 0 1 12s4 7 11 7a10.7 10.7 0 0 0 3.8-.7"/></svg>';
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "password-toggle";
+    btn.innerHTML = eyeIcon;
+    btn.addEventListener("click", () => {
+      const visivel = input.type === "text";
+      input.type = visivel ? "password" : "text";
+      btn.innerHTML = visivel ? eyeIcon : eyeOffIcon;
+      btn.setAttribute("aria-pressed", String(!visivel));
+    });
+    return btn;
+  }
+
+  async function atualizarSenhaAuthMotorista(email, senhaAtual, novaSenha) {
+    if (!novaSenha || !email) return;
+    if (!adminCredentialAuth) {
+      const erro = new Error("app_secundario_indisponivel");
+      erro.code = "app_secundario_indisponivel";
+      throw erro;
+    }
+    let credUsuario = null;
+    try {
+      credUsuario = await adminCredentialAuth.signInWithEmailAndPassword(email, senhaAtual || novaSenha);
+      await credUsuario.user.updatePassword(novaSenha);
+    } finally {
+      try {
+        await adminCredentialAuth.signOut();
+      } catch (error) {
+        console.warn("Não foi possível encerrar a sessão secundária após atualizar senha.", error);
+      }
+    }
+  }
+
   filtroMesMotoristaInput?.addEventListener("change", () => {
     atualizarTabelaMotorista();
   });
@@ -2092,6 +2164,7 @@
       email,
       salario: isNaN(salario) ? 0 : salario,
       caminhao,
+      ...(senha ? { senha } : {}),
     };
 
     const existentes = await db.collection(COLECAO_MOTORISTAS).where("email", "==", email).limit(1).get();
@@ -2984,17 +3057,41 @@
       });
       tdCaminhao.appendChild(caminhaoInput);
 
+      const tdSenha = document.createElement("td");
+      const senhaWrapper = document.createElement("div");
+      senhaWrapper.className = "password-cell";
+      const senhaInput = document.createElement("input");
+      senhaInput.type = "password";
+      senhaInput.value = item.senha || "";
+      senhaInput.placeholder = "Não definida";
+      senhaInput.autocomplete = "off";
+      const toggleBtn = criarBotaoToggleSenha(senhaInput);
+      senhaWrapper.appendChild(senhaInput);
+      senhaWrapper.appendChild(toggleBtn);
+      tdSenha.appendChild(senhaWrapper);
+
       const tdAcoes = document.createElement("td");
       const salvarBtn = document.createElement("button");
       salvarBtn.className = "btn btn-primary";
       salvarBtn.textContent = "Salvar";
       salvarBtn.addEventListener("click", async () => {
         const salarioVal = parseFloat(salarioInput.value.replace(",", "."));
+        const senhaAtual = (item.senha || "").trim();
+        const novaSenha = senhaInput.value.trim();
         const payload = {
           nome: nomeInput.value.trim(),
           salario: isNaN(salarioVal) ? 0 : salarioVal,
-          caminhao: caminhaoInput.value.trim()
+          caminhao: caminhaoInput.value.trim(),
+          senha: novaSenha
         };
+        if (novaSenha && novaSenha !== senhaAtual) {
+          try {
+            await atualizarSenhaAuthMotorista(item.email, senhaAtual, novaSenha);
+          } catch (error) {
+            console.warn("Não foi possível atualizar a senha no Auth.", error);
+            alert("A senha foi salva no cadastro, mas não pôde ser atualizada para login. Envie um reset ou tente novamente.");
+          }
+        }
         await db.collection(COLECAO_MOTORISTAS).doc(item.id).set(payload, { merge: true });
         await atualizarPerfilVinculado(item.uid, payload);
       });
@@ -3029,6 +3126,7 @@
       tr.appendChild(tdStatus);
       tr.appendChild(tdSalario);
       tr.appendChild(tdCaminhao);
+      tr.appendChild(tdSenha);
       tr.appendChild(tdAcoes);
 
       tabelaMotoristasAdminBody.appendChild(tr);
