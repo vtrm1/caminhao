@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v2.0';
+const CACHE_VERSION = 'v2.1';
 const CACHE_NAME = `caminhao-cache-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [

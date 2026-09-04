@@ -52,6 +52,8 @@ service cloud.firestore {
         request.resource.data.salario == resource.data.salario &&
         request.resource.data.caminhao == resource.data.caminhao &&
         request.resource.data.get('pagarSalarioSemViagem', false) == resource.data.get('pagarSalarioSemViagem', false) &&
+        request.resource.data.get('salarioZeradoIntencional', false) == resource.data.get('salarioZeradoIntencional', false) &&
+        request.resource.data.get('auditoriaSalarios', []) == resource.data.get('auditoriaSalarios', []) &&
         request.resource.data.get('historicoFolha', []) == resource.data.get('historicoFolha', []) &&
         (request.resource.data.status == resource.data.status || request.resource.data.status == "ativo")
       );

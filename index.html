@@ -1515,6 +1515,7 @@
         </div>
       </div>
       <div id="avisoHistoricoFolha" class="history-warning hidden"></div>
+      <div id="avisoIntegridadeSalarios" class="history-warning hidden"></div>
       <p class="info-text hidden" id="avisoFiltroCaminhaoFolha">O caminhão filtra fretes e comissões; salários fixos não são rateados por caminhão.</p>
       <div class="table-wrapper">
         <table id="tabelaFinanceiroMotoristas" class="financial-table">
@@ -1796,6 +1797,7 @@
   const graficoMelhorPeriodo = document.getElementById("graficoMelhorPeriodo");
   const tabelaFinanceiroMotoristasBody = document.querySelector("#tabelaFinanceiroMotoristas tbody");
   const avisoHistoricoFolha = document.getElementById("avisoHistoricoFolha");
+  const avisoIntegridadeSalarios = document.getElementById("avisoIntegridadeSalarios");
   const avisoFiltroCaminhaoFolha = document.getElementById("avisoFiltroCaminhaoFolha");
   const buscaFretesChefeInput = document.getElementById("buscaFretesChefe");
   const totaisTabelaFretes = document.getElementById("totaisTabelaFretes");
@@ -1900,13 +1902,83 @@
       .pop() || null;
   }
 
+  function obterUltimoSalarioPositivo(motorista, ateMes = obterMesAtualISO()) {
+    const evento = normalizarHistoricoFolha(motorista)
+      .filter(item => item.vigencia <= ateMes && Number(item.salario) > 0)
+      .pop();
+    return evento ? Number(evento.salario) : 0;
+  }
+
+  function obterSalarioConfiavel(motorista, ateMes = obterMesAtualISO()) {
+    const ultimoEvento = normalizarHistoricoFolha(motorista)
+      .filter(item => item.vigencia <= ateMes)
+      .pop();
+    const salarioHistorico = Number(ultimoEvento?.salario);
+    if (Number.isFinite(salarioHistorico) && salarioHistorico > 0) return salarioHistorico;
+    if (ultimoEvento?.salarioZeradoIntencional === true || motorista?.salarioZeradoIntencional === true) return 0;
+    const salarioAtual = Number(motorista?.salario);
+    if (Number.isFinite(salarioAtual) && salarioAtual > 0) return salarioAtual;
+    return obterUltimoSalarioPositivo(motorista, ateMes);
+  }
+
+  function obterSalarioEventoConfiavel(motorista, evento, anoMes) {
+    const salarioEvento = Number(evento?.salario);
+    if (Number.isFinite(salarioEvento) && salarioEvento > 0) return salarioEvento;
+    if (evento?.salarioZeradoIntencional === true || motorista?.salarioZeradoIntencional === true) return 0;
+    const salarioAnterior = obterUltimoSalarioPositivo(motorista, anoMes);
+    if (salarioAnterior > 0) return salarioAnterior;
+    const primeiroSalarioHistorico = normalizarHistoricoFolha(motorista)
+      .find(item => Number(item.salario) > 0);
+    if (primeiroSalarioHistorico) return Number(primeiroSalarioHistorico.salario);
+    const salarioAtual = Number(motorista?.salario);
+    return Number.isFinite(salarioAtual) && salarioAtual > 0 ? salarioAtual : 0;
+  }
+
+  function obterEventoFolhaParaCalculo(motorista, anoMes, possuiViagemNoMes) {
+    const eventoRegistrado = obterEventoFolhaNoMes(motorista, anoMes);
+    if (eventoRegistrado) return { evento: eventoRegistrado, reconstruido: false };
+    const pagarSemViagemNoMesAtual = anoMes === obterMesAtualISO() && motorista?.status === "ativo" && motorista?.pagarSalarioSemViagem === true;
+    if (!possuiViagemNoMes && !pagarSemViagemNoMesAtual) return { evento: null, reconstruido: false };
+
+    const primeiroEvento = normalizarHistoricoFolha(motorista)[0] || null;
+    const salarioReferencia = obterSalarioEventoConfiavel(motorista, primeiroEvento, anoMes);
+    if (salarioReferencia <= 0) return { evento: null, reconstruido: false };
+
+    return {
+      evento: {
+        salario: salarioReferencia,
+        salarioZeradoIntencional: false,
+        pagarSalarioSemViagem: pagarSemViagemNoMesAtual,
+        ativo: true
+      },
+      reconstruido: true
+    };
+  }
+
+  function montarAuditoriaSalario(motorista, novoSalario) {
+    const auditoria = Array.isArray(motorista?.auditoriaSalarios)
+      ? motorista.auditoriaSalarios.filter(item => item && Number.isFinite(Number(item.salarioNovo))).map(item => ({ ...item }))
+      : [];
+    const salarioAnterior = obterSalarioConfiavel(motorista);
+    if (salarioAnterior === novoSalario) return auditoria;
+    auditoria.push({
+      alteradoEm: new Date().toISOString(),
+      salarioAnterior,
+      salarioNovo: novoSalario
+    });
+    return auditoria.slice(-100);
+  }
+
   function montarHistoricoFolhaAtualizado(motorista, alteracoes = {}) {
     const vigencia = obterMesAtualISO();
     const historico = normalizarHistoricoFolha(motorista).map(item => ({ ...item }));
     const ultimo = historico.filter(item => item.vigencia <= vigencia).pop() || {};
+    const salarioFoiAlterado = Object.prototype.hasOwnProperty.call(alteracoes, "salario");
+    const salarioResolvido = Number(alteracoes.salario ?? ultimo.salario ?? obterSalarioConfiavel(motorista)) || 0;
     const evento = {
       vigencia,
-      salario: Number(alteracoes.salario ?? ultimo.salario ?? motorista?.salario) || 0,
+      salario: salarioResolvido,
+      salarioZeradoIntencional: Boolean(alteracoes.salarioZeradoIntencional ?? (salarioFoiAlterado ? salarioResolvido === 0 : (ultimo.salarioZeradoIntencional ?? motorista?.salarioZeradoIntencional))),
       pagarSalarioSemViagem: Boolean(alteracoes.pagarSalarioSemViagem ?? ultimo.pagarSalarioSemViagem ?? motorista?.pagarSalarioSemViagem),
       ativo: Boolean(alteracoes.ativo ?? ultimo.ativo ?? (motorista?.status === "ativo"))
     };
@@ -2018,7 +2090,7 @@
 
     const atualizacoes = {};
 
-    const salarioCorrigido = Number(vinculado.salario) || 0;
+    const salarioCorrigido = obterSalarioConfiavel(vinculado);
     if (salarioCorrigido !== perfilAtual.salario) {
       perfilAtual.salario = salarioCorrigido;
       atualizacoes.salario = salarioCorrigido;
@@ -2141,7 +2213,7 @@
       nome: dados.nome || user.displayName || user.email || "Motorista",
       email: user.email || "",
       tipo: "motorista",
-      salario: Number(dados.salario) || 0,
+      salario: obterSalarioConfiavel(dados),
       caminhao: dados.caminhao || "",
       status: "ativo",
     };
@@ -2290,11 +2362,16 @@
     const vigenciaAtual = obterMesAtualISO();
     const pendentes = motoristas.filter(m => {
       const eventoAtual = normalizarHistoricoFolha(m).find(evento => evento.vigencia === vigenciaAtual);
-      const assinatura = `${m.id}:${Number(m.salario) || 0}:${Boolean(m.pagarSalarioSemViagem)}:${m.status}`;
+      const salarioConfiavel = obterSalarioConfiavel(m);
+      const salarioAtual = Number(m.salario) || 0;
+      const salarioEvento = obterSalarioEventoConfiavel(m, eventoAtual, vigenciaAtual);
+      const zeroIntencional = m.salarioZeradoIntencional === true || eventoAtual?.salarioZeradoIntencional === true;
+      const assinatura = `${m.id}:${salarioAtual}:${salarioConfiavel}:${zeroIntencional}:${Boolean(m.pagarSalarioSemViagem)}:${m.status}`;
       m.__assinaturaHistorico = assinatura;
       return !historicosFolhaInicializados.has(assinatura) && (
         !eventoAtual ||
-        Number(eventoAtual.salario) !== (Number(m.salario) || 0) ||
+        salarioAtual !== salarioConfiavel ||
+        Number(eventoAtual.salario) !== salarioEvento ||
         Boolean(eventoAtual.pagarSalarioSemViagem) !== Boolean(m.pagarSalarioSemViagem) ||
         Boolean(eventoAtual.ativo) !== (m.status === "ativo")
       );
@@ -2302,13 +2379,30 @@
     await Promise.all(pendentes.map(async motorista => {
       historicosFolhaInicializados.add(motorista.__assinaturaHistorico);
       const pagarSalarioSemViagem = Boolean(motorista.pagarSalarioSemViagem);
+      const salarioConfiavel = obterSalarioConfiavel(motorista);
+      const eventoAtual = obterEventoFolhaNoMes(motorista, vigenciaAtual);
+      const zeroIntencional = motorista.salarioZeradoIntencional === true || eventoAtual?.salarioZeradoIntencional === true;
       const historicoFolha = montarHistoricoFolhaAtualizado(motorista, {
-        salario: Number(motorista.salario) || 0,
+        salario: salarioConfiavel,
+        salarioZeradoIntencional: zeroIntencional,
         pagarSalarioSemViagem,
         ativo: motorista.status === "ativo"
       });
       try {
-        await db.collection(COLECAO_MOTORISTAS).doc(motorista.id).set({ pagarSalarioSemViagem, historicoFolha }, { merge: true });
+        const salarioAntesDoReparo = Number(motorista.salario) || 0;
+        const reparo = {
+          salario: salarioConfiavel,
+          salarioZeradoIntencional: zeroIntencional,
+          pagarSalarioSemViagem,
+          historicoFolha
+        };
+        if (salarioAntesDoReparo === 0 && salarioConfiavel > 0) {
+          reparo.salarioRecuperadoEm = firebase.firestore.FieldValue.serverTimestamp();
+          reparo.salarioAntesDoReparo = salarioAntesDoReparo;
+          console.warn(`Salário de ${motorista.nome || motorista.id} recuperado pelo histórico da folha.`);
+        }
+        await db.collection(COLECAO_MOTORISTAS).doc(motorista.id).set(reparo, { merge: true });
+        await atualizarPerfilVinculado(motorista.uid, { salario: salarioConfiavel });
       } catch (error) {
         historicosFolhaInicializados.delete(motorista.__assinaturaHistorico);
         console.error("Não foi possível iniciar o histórico da folha", error);
@@ -2462,7 +2556,9 @@
     if (!motorista) return;
     const payload = {
       salario,
-      historicoFolha: montarHistoricoFolhaAtualizado(motorista, { salario })
+      salarioZeradoIntencional: salario === 0,
+      auditoriaSalarios: montarAuditoriaSalario(motorista, salario),
+      historicoFolha: montarHistoricoFolhaAtualizado(motorista, { salario, salarioZeradoIntencional: salario === 0 })
     };
     await db.collection(COLECAO_MOTORISTAS).doc(motorista.id).set(payload, { merge: true });
     await atualizarPerfilVinculado(motorista.uid, { salario });
@@ -2471,9 +2567,16 @@
   btnSalvarSalario?.addEventListener("click", async () => {
     const nome = salarioMotoristaNomeInput.value.trim();
     const salario = parseFloat(salarioMotoristaValorInput.value.replace(",", "."));
-    if (!nome || isNaN(salario)) {
+    if (!nome || isNaN(salario) || salario < 0) {
       alert("Informe nome e salário válidos.");
       return;
+    }
+    if (salario === 0) {
+      const confirmado = await mostrarDialogoConfirmacao(
+        "Zerar salário",
+        "O salário deste motorista será definido como R$ 0,00. Confirma essa alteração?"
+      );
+      if (!confirmado) return;
     }
     await salvarSalario(nome, salario);
     salarioMotoristaNomeInput.value = "";
@@ -2484,12 +2587,24 @@
     const nome = novoMotoristaNomeInput.value.trim();
     const email = novoMotoristaEmailInput.value.trim().toLowerCase();
     const senha = (novoMotoristaSenhaInput.value || "").trim();
-    const salario = parseFloat(novoMotoristaSalarioInput.value.replace(",", "."));
+    const salarioTexto = novoMotoristaSalarioInput.value.trim();
+    const salario = parseFloat(salarioTexto.replace(",", "."));
     const caminhao = novoMotoristaCaminhaoInput.value.trim();
 
     if (!nome || !email) {
       alert("Informe nome e email para cadastrar o motorista.");
       return;
+    }
+    if (salarioTexto && (isNaN(salario) || salario < 0)) {
+      alert("Informe um salário válido ou deixe o campo em branco.");
+      return;
+    }
+    if (salarioTexto && salario === 0) {
+      const confirmado = await mostrarDialogoConfirmacao(
+        "Cadastrar salário zerado",
+        "O salário será salvo como R$ 0,00. Confirma esse valor?"
+      );
+      if (!confirmado) return;
     }
 
     let novoUid = "";
@@ -2505,10 +2620,13 @@
     const payloadBase = {
       nome,
       email,
-      salario: isNaN(salario) ? 0 : salario,
       caminhao,
       pagarSalarioSemViagem: false,
     };
+    if (salarioTexto && !isNaN(salario)) {
+      payloadBase.salario = salario;
+      payloadBase.salarioZeradoIntencional = salario === 0;
+    }
 
     const existentes = await db.collection(COLECAO_MOTORISTAS).where("email", "==", email).limit(1).get();
     if (!existentes.empty) {
@@ -2517,11 +2635,17 @@
         ...payloadBase,
         pagarSalarioSemViagem: Boolean(dadosExistentes.pagarSalarioSemViagem),
         historicoFolha: montarHistoricoFolhaAtualizado(dadosExistentes, {
-          salario: payloadBase.salario,
+          ...(Object.prototype.hasOwnProperty.call(payloadBase, "salario") ? {
+            salario: payloadBase.salario,
+            salarioZeradoIntencional: payloadBase.salario === 0
+          } : {}),
           pagarSalarioSemViagem: Boolean(dadosExistentes.pagarSalarioSemViagem),
           ativo: dadosExistentes.status === "ativo"
         })
       };
+      if (Object.prototype.hasOwnProperty.call(payloadBase, "salario")) {
+        atualizacoes.auditoriaSalarios = montarAuditoriaSalario(dadosExistentes, payloadBase.salario);
+      }
       if (novoUid) {
         atualizacoes.uid = novoUid;
       }
@@ -2529,11 +2653,14 @@
     } else {
       await db.collection(COLECAO_MOTORISTAS).add({
         ...payloadBase,
+        salario: Object.prototype.hasOwnProperty.call(payloadBase, "salario") ? payloadBase.salario : 0,
+        salarioZeradoIntencional: payloadBase.salario === 0 && salarioTexto !== "",
         uid: novoUid || "",
         status: "pendente",
         historicoFolha: [{
           vigencia: obterMesAtualISO(),
-          salario: payloadBase.salario,
+          salario: Object.prototype.hasOwnProperty.call(payloadBase, "salario") ? payloadBase.salario : 0,
+          salarioZeradoIntencional: payloadBase.salario === 0 && salarioTexto !== "",
           pagarSalarioSemViagem: false,
           ativo: false
         }],
@@ -2769,15 +2896,11 @@
     const totalFrete = fretesDoMotorista.reduce((acc, f) => acc + (Number(f.freteTotal) || 0), 0);
     const comissao = totalFrete * (COMISSAO_PADRAO / 100);
     const cadastroMotorista = motoristas.find(m => m.uid === usuarioAtual.uid);
-    const eventoFolha = cadastroMotorista
-      ? obterEventoFolhaNoMes(cadastroMotorista, mesSelecionado) || (mesSelecionado === obterMesAtualISO() ? {
-          salario: cadastroMotorista.salario,
-          pagarSalarioSemViagem: Boolean(cadastroMotorista.pagarSalarioSemViagem),
-          ativo: cadastroMotorista.status === "ativo"
-        } : null)
-      : null;
+    const { evento: eventoFolha, reconstruido: salarioReconstruido } = cadastroMotorista
+      ? obterEventoFolhaParaCalculo(cadastroMotorista, mesSelecionado, fretesDoMotorista.length > 0)
+      : { evento: null, reconstruido: false };
     const salario = eventoFolha?.ativo && (eventoFolha.pagarSalarioSemViagem || fretesDoMotorista.length)
-      ? Number(eventoFolha.salario) || 0
+      ? obterSalarioEventoConfiavel(cadastroMotorista, eventoFolha, mesSelecionado)
       : 0;
     const totalPrevisto = salario + comissao;
 
@@ -2788,7 +2911,9 @@
     resumoMotoristaTotalPrevisto.textContent = formatarMoeda(totalPrevisto);
 
     mensagemResumoMotorista.textContent = fretesDoMotorista.length
-      ? "Resumo calculado a partir dos fretes lançados."
+      ? salarioReconstruido
+        ? "Resumo calculado com o primeiro salário válido disponível para este mês anterior ao histórico."
+        : "Resumo calculado a partir dos fretes lançados."
       : "Nenhum frete lançado ainda para este usuário.";
   }
 
@@ -2868,7 +2993,7 @@
           grupo.id === motorista.uid || normalizarTexto(grupo.nome) === normalizarTexto(motorista.nome)
         ) || { nome: motorista.nome || "Sem motorista", viagens: 0, freteTotal: 0, pesoTotal: 0 };
         const fretesRegraSalario = obterFretesParaRegraSalarial(anoMes, motorista.nome);
-        const evento = obterEventoFolhaNoMes(motorista, anoMes);
+        const { evento, reconstruido } = obterEventoFolhaParaCalculo(motorista, anoMes, fretesRegraSalario.length > 0);
         const mesFuturo = anoMes > obterMesAtualISO();
         const comissao = info.freteTotal * (comissaoPercent / 100);
         let salario = 0;
@@ -2880,7 +3005,11 @@
           salarioDisponivel = false;
           if (fretesRegraSalario.length) possuiMesSemHistorico = true;
         } else if (evento.ativo && (evento.pagarSalarioSemViagem || fretesRegraSalario.length > 0)) {
-          salario = Number(evento.salario) || 0;
+          salario = obterSalarioEventoConfiavel(motorista, evento, anoMes);
+          if (reconstruido) {
+            salarioDisponivel = false;
+            possuiMesSemHistorico = true;
+          }
         }
 
         if (!linhas.has(chave)) {
@@ -2998,11 +3127,23 @@
 
     resumoComissaoTotalSpan.textContent = formatarMoeda(comissaoTotal);
     resumoFolhaTotalSpan.textContent = formatarMoeda(folhaTotal);
+    const salariosSemReferencia = motoristas.filter(m =>
+      m.status === "ativo" &&
+      obterSalarioConfiavel(m) === 0 &&
+      m.salarioZeradoIntencional !== true &&
+      obterEventoFolhaNoMes(m, obterMesAtualISO())?.salarioZeradoIntencional !== true
+    );
+    if (avisoIntegridadeSalarios) {
+      avisoIntegridadeSalarios.classList.toggle("hidden", salariosSemReferencia.length === 0);
+      avisoIntegridadeSalarios.textContent = salariosSemReferencia.length
+        ? `Atenção: não foi encontrado um salário anterior para ${salariosSemReferencia.map(m => m.nome || "motorista sem nome").join(", ")}. Confira e informe esses valores manualmente.`
+        : "";
+    }
     avisoFiltroCaminhaoFolha?.classList.toggle("hidden", !filtroCaminhaoChefeSelect?.value);
     if (avisoHistoricoFolha) {
       avisoHistoricoFolha.classList.toggle("hidden", !possuiMesSemHistorico);
       avisoHistoricoFolha.textContent = possuiMesSemHistorico
-        ? "* Há meses anteriores ao início do histórico salarial. Neles, a folha considera somente as comissões; nenhum salário antigo foi estimado."
+        ? "* Em meses anteriores ao início do histórico, o salário foi reconstruído pelo primeiro valor válido disponível quando havia viagem. Sem qualquer referência salarial, permanece somente a comissão."
         : "";
     }
   }
@@ -3461,7 +3602,7 @@
 
       const tdSalario = document.createElement("td");
       tdSalario.className = "text-right";
-      tdSalario.textContent = formatarMoeda(item.salario || 0);
+      tdSalario.textContent = formatarMoeda(obterSalarioConfiavel(item));
 
       const tdAcoes = document.createElement("td");
       const btnEditar = document.createElement("button");
@@ -3470,7 +3611,7 @@
       btnEditar.textContent = "Editar";
       btnEditar.addEventListener("click", () => {
         salarioMotoristaNomeInput.value = item.nome;
-        salarioMotoristaValorInput.value = item.salario;
+        salarioMotoristaValorInput.value = obterSalarioConfiavel(item);
       });
 
       tdAcoes.appendChild(btnEditar);
@@ -3511,14 +3652,7 @@
       salarioInput.type = "number";
       salarioInput.min = "0";
       salarioInput.step = "0.01";
-      salarioInput.value = item.salario || 0;
-      salarioInput.addEventListener("change", async () => {
-        const val = parseFloat(salarioInput.value.replace(",", "."));
-        const salario = isNaN(val) ? 0 : val;
-        const payload = { salario, historicoFolha: montarHistoricoFolhaAtualizado(item, { salario }) };
-        await db.collection(COLECAO_MOTORISTAS).doc(item.id).set(payload, { merge: true });
-        await atualizarPerfilVinculado(item.uid, { salario });
-      });
+      salarioInput.value = obterSalarioConfiavel(item);
       tdSalario.appendChild(salarioInput);
 
       const tdSemViagem = document.createElement("td");
@@ -3557,14 +3691,33 @@
       salvarBtn.className = "btn btn-primary";
       salvarBtn.textContent = "Salvar";
       salvarBtn.addEventListener("click", async () => {
-        const salarioVal = parseFloat(salarioInput.value.replace(",", "."));
+        const salarioTexto = salarioInput.value.trim();
+        const salarioVal = parseFloat(salarioTexto.replace(",", "."));
+        if (!salarioTexto || isNaN(salarioVal) || salarioVal < 0) {
+          alert("Informe um salário válido antes de salvar.");
+          salarioInput.value = obterSalarioConfiavel(item);
+          return;
+        }
+        if (salarioVal === 0) {
+          const confirmado = await mostrarDialogoConfirmacao(
+            "Zerar salário",
+            `O salário de ${item.nome || "este motorista"} será definido como R$ 0,00. Confirma essa alteração?`
+          );
+          if (!confirmado) {
+            salarioInput.value = obterSalarioConfiavel(item);
+            return;
+          }
+        }
         const payload = {
           nome: nomeInput.value.trim(),
-          salario: isNaN(salarioVal) ? 0 : salarioVal,
+          salario: salarioVal,
+          salarioZeradoIntencional: salarioVal === 0,
+          auditoriaSalarios: montarAuditoriaSalario(item, salarioVal),
           caminhao: caminhaoInput.value.trim(),
           pagarSalarioSemViagem: semViagemInput.checked,
           historicoFolha: montarHistoricoFolhaAtualizado(item, {
-            salario: isNaN(salarioVal) ? 0 : salarioVal,
+            salario: salarioVal,
+            salarioZeradoIntencional: salarioVal === 0,
             pagarSalarioSemViagem: semViagemInput.checked
           })
         };
